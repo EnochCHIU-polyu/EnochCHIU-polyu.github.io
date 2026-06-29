@@ -29,10 +29,11 @@ export default defineConfig({
 				{
 					label: 'Ethereum',
 					items: [
-						{ label: 'Ethereum Overview', link: '/ethereum/eth/' },
-						{ label: 'Ethereum Nodes', link: '/ethereum/eth-node/' },
-						{ label: 'Ethereum P2P Network', link: '/ethereum/eth-p2p/' },
-						{ label: 'Ethereum Accounts (20 Bytes)', link: '/ethereum/eth-account/' },
+						{ label: 'Overview', link: '/ethereum/eth/' },
+						{ label: 'Nodes', link: '/ethereum/eth-node/' },
+						{ label: 'P2P Network', link: '/ethereum/eth-p2p/' },
+						{ label: 'Accounts (20 Bytes)', link: '/ethereum/eth-account/' },
+						{ label: 'Cryptography', link: '/ethereum/eth-cryptography/' },
 						{ label: 'Transaction Processing', link: '/ethereum/eth-transaction/' },
 						{ label: 'Gas', link: '/ethereum/eth-gas/' },
 						{ label: 'Proof of Stake', link: '/ethereum/eth-pos/' },

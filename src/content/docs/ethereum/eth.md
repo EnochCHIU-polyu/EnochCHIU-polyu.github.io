@@ -74,10 +74,11 @@ Ethereum (EVM) is Turing-complete because it mirrors a PC's core capabilities on
 | ---- | -------------------------------------------------------------- | ------------------------------------------------------- |
 | 1    | Node roles, client architecture, and deployment basics         | [eth-node](/ethereum/eth-node/)                         |
 | 2    | Peer discovery, gossip, and propagation in the network         | [eth-p2p](/ethereum/eth-p2p/)                           |
-| 3    | User identity and account model (EOA/contract)                 | [eth-account](/ethereum/eth-account/)                   |
-| 4    | Transaction fields (`nonce`, `to`, `value`, `data`, signature) | [eth-transaction](/ethereum/eth-transaction/)           |
-| 5    | Fee setup (`gasLimit`, `maxFeePerGas`, `maxPriorityFeePerGas`) | [eth-gas](/ethereum/eth-gas/)                           |
-| 6    | Proposer/validator roles and assignment logic (RANDAO)         | [eth-pos](/ethereum/eth-pos/)                           |
-| 7    | Runtime execution path and block import re-validation          | [eth-transaction-code](/ethereum/eth-transaction-code/) |
+| 3    | Cryptographic primitives, signatures, and verification model   | [eth-cryptography](/ethereum/eth-cryptography/)         |
+| 4    | User identity and account model (EOA/contract)                 | [eth-account](/ethereum/eth-account/)                   |
+| 5    | Transaction fields (`nonce`, `to`, `value`, `data`, signature) | [eth-transaction](/ethereum/eth-transaction/)           |
+| 6    | Fee setup (`gasLimit`, `maxFeePerGas`, `maxPriorityFeePerGas`) | [eth-gas](/ethereum/eth-gas/)                           |
+| 7    | Proposer/validator roles and assignment logic (RANDAO)         | [eth-pos](/ethereum/eth-pos/)                           |
+| 8    | Runtime execution path and block import re-validation          | [eth-transaction-code](/ethereum/eth-transaction-code/) |
 
 

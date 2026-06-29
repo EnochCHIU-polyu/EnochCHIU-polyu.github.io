@@ -3,7 +3,7 @@ title: Accounts (20 Bytes)
 description: A guide to Ethereum account types, fields, and address generation.
 ---
 Ethereum accounts are identified by 20-byte addresses.
-
+![Account Overview](../../../assets/eth-account.png)
 ## Part 1: Account State Fields
 
 Each Ethereum account stores four core fields:
