@@ -53,7 +53,6 @@ An Ethereum transaction is a signed message that requests value transfer or cont
 
 [More detail on gas](/ethereum/eth-gas/)
 
-
 ## Part 3: Transaction Lifecycle
 
 A request to modify the state of the blockchain signed by the originating account
