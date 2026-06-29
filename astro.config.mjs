@@ -10,7 +10,7 @@ export default defineConfig({
 	integrations: [
 		starlight({
 			title: 'NoteStudy',
-			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/withastro/starlight' }],
+			social: [{ icon: 'github', label: 'GitHub', href: '/social/' }],
 			customCss: ['./src/styles/custom.css'],
 			// Keep the theme locked to light mode and add a desktop sidebar toggle in the header.
 			head: [

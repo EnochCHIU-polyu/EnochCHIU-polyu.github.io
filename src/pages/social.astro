@@ -1,0 +1,525 @@
+---
+const pixelShape = [
+  [0, 0, 0, 1, 1, 1, 1, 0, 0, 0],
+  [0, 0, 1, 1, 0, 0, 1, 1, 0, 0],
+  [0, 1, 1, 0, 0, 0, 0, 1, 1, 0],
+  [0, 1, 1, 0, 0, 0, 0, 1, 1, 0],
+  [0, 1, 1, 0, 0, 0, 0, 1, 1, 0],
+  [0, 0, 1, 1, 0, 0, 1, 1, 0, 0],
+  [0, 0, 0, 1, 1, 1, 1, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 1, 1, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0, 1, 1, 0],
+  [0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+];
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Yee Lok Chiu | Personal Site</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700;800&family=Manrope:wght@500;600;700&display=swap");
+
+      :root {
+        --bg: #efeff7;
+        --ink: #0f1018;
+        --muted: #5f6370;
+        --card: #f8f8fb;
+        --primary: #4f46e5;
+        --primary-soft: #e7e5ff;
+        --success-soft: #e9f8f0;
+        --success-ink: #0f6b43;
+        --line: #dbdce8;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        color: var(--ink);
+        font-family: "Manrope", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        background:
+          radial-gradient(circle at 18px 18px, #e5e6f0 5px, transparent 6px),
+          var(--bg);
+        background-size: 52px 52px;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .container {
+        max-width: 1320px;
+        margin: 0 auto;
+        padding: 22px 18px 60px;
+      }
+
+      .topbar {
+        display: grid;
+        grid-template-columns: 200px 1fr auto;
+        gap: 20px;
+        align-items: center;
+      }
+
+      .brand {
+        font-family: "Space Grotesk", "Manrope", sans-serif;
+        font-size: 48px;
+        font-weight: 800;
+        line-height: 0.86;
+        letter-spacing: -0.03em;
+      }
+
+      .menu {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        background: rgba(255, 255, 255, 0.72);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 8px;
+      }
+
+      .menu a {
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        padding: 12px 16px;
+        border-radius: 10px;
+      }
+
+      .menu a:hover {
+        background: #ffffff;
+      }
+
+      .cta-top {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        background: #ffffff;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 8px 8px 8px 18px;
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      .cta-icon {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        background: var(--primary);
+        color: #ffffff;
+        display: grid;
+        place-items: center;
+        font-weight: 800;
+      }
+
+      .hero {
+        min-height: 74vh;
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        gap: 40px;
+        margin-top: 18px;
+      }
+
+      .hero h1 {
+        font-family: "Space Grotesk", "Manrope", sans-serif;
+        margin: 0;
+        font-size: clamp(46px, 7vw, 78px);
+        line-height: 0.95;
+        letter-spacing: -0.03em;
+      }
+
+      .hero p {
+        margin: 0 0 28px;
+        color: var(--muted);
+        font-size: 34px;
+        line-height: 1.35;
+      }
+
+      .hero-right {
+        max-width: 430px;
+      }
+
+      .hero-copy {
+        font-size: 34px;
+      }
+
+      .cta-main {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        background: #10111a;
+        color: #ffffff;
+        border-radius: 14px;
+        border: 3px solid #10111a;
+        font-size: 16px;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        padding: 12px 12px 12px 22px;
+      }
+
+      .pixel-wrap {
+        justify-self: center;
+      }
+
+      .pixel-grid {
+        display: grid;
+        grid-template-columns: repeat(10, 1fr);
+        gap: 0;
+      }
+
+      .pixel {
+        width: clamp(24px, 3.2vw, 42px);
+        height: clamp(24px, 3.2vw, 42px);
+        background: transparent;
+      }
+
+      .pixel.on {
+        background: var(--primary);
+        animation: reveal 700ms ease both;
+      }
+
+      .pixel.on:hover {
+        transform: scale(1.08);
+        filter: brightness(1.08);
+      }
+
+      .sections {
+        display: grid;
+        gap: 18px;
+      }
+
+      .card {
+        background: rgba(255, 255, 255, 0.78);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 22px;
+        box-shadow: 0 10px 24px rgba(15, 16, 24, 0.04);
+      }
+
+      .card h2 {
+        margin: 0 0 10px;
+        font-family: "Space Grotesk", "Manrope", sans-serif;
+        font-size: 24px;
+      }
+
+      .section-kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: var(--primary-soft);
+        color: var(--primary);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .section-kicker.success {
+        background: var(--success-soft);
+        color: var(--success-ink);
+      }
+
+      .lede {
+        font-size: 18px;
+        font-weight: 600;
+        line-height: 1.65;
+      }
+
+      .card p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+      }
+
+      .list {
+        margin: 8px 0 0;
+        padding-left: 18px;
+        color: var(--muted);
+        line-height: 1.65;
+      }
+
+      .list li::marker {
+        color: var(--primary);
+      }
+
+      .list.tight {
+        margin-top: 10px;
+        display: grid;
+        gap: 6px;
+      }
+
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 16px;
+      }
+
+      .chip {
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: #ffffff;
+        font-size: 13px;
+        font-weight: 700;
+        color: #2f3443;
+      }
+
+      .impact-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .impact-item {
+        background: #ffffff;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 12px;
+      }
+
+      .impact-item h3 {
+        margin: 0 0 6px;
+        font-size: 14px;
+        font-weight: 800;
+      }
+
+      .impact-item p {
+        margin: 0;
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .socials {
+        display: flex;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .socials a {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 112px;
+        padding: 10px 14px;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        background: #ffffff;
+        font-weight: 700;
+      }
+
+      @keyframes reveal {
+        from {
+          opacity: 0;
+          transform: scale(0.85);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+
+      @media (max-width: 1120px) {
+        .topbar {
+          grid-template-columns: 1fr;
+          gap: 12px;
+        }
+
+        .menu {
+          justify-content: flex-start;
+          overflow: auto;
+        }
+
+        .hero {
+          grid-template-columns: 1fr;
+          gap: 24px;
+          min-height: auto;
+          padding-top: 24px;
+        }
+
+        .hero-right,
+        .hero-copy {
+          max-width: none;
+        }
+      }
+
+      @media (max-width: 760px) {
+        .brand {
+          font-size: 38px;
+        }
+
+        .grid-2 {
+          grid-template-columns: 1fr;
+        }
+
+        .hero p {
+          font-size: 21px;
+        }
+
+        .impact-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header class="topbar">
+        <div class="brand">yee lok<br />chiu</div>
+        <nav class="menu">
+          <a href="#about">Background</a>
+          <a href="#education">Education</a>
+          <a href="#projects">Projects</a>
+          <a href="#skills">Skills</a>
+          <a href="/ethereum/eth/">Notes</a>
+        </nav>
+        <a class="cta-top" href="mailto:enochchiu2003@gmail.com">
+          LET'S TALK
+          <span class="cta-icon">+</span>
+        </a>
+      </header>
+
+      <main class="hero">
+        <section class="hero-copy">
+          <h1>Engineering that scales.</h1>
+        </section>
+
+        <section class="pixel-wrap" aria-hidden="true">
+          <div class="pixel-grid">
+            {pixelShape.map((row, rowIndex) =>
+              row.map((cell, colIndex) => (
+                <div
+                  class:list={['pixel', cell === 1 && 'on']}
+                  style={`animation-delay:${(rowIndex * 0.05 + colIndex * 0.04).toFixed(2)}s`}
+                ></div>
+              ))
+            )}
+          </div>
+        </section>
+
+        <section class="hero-right">
+          <p>
+            I turn complex systems into usable products, combining full-stack engineering with blockchain-focused architecture.
+            I am currently pursuing an MSc in Blockchain Technology at PolyU.
+          </p>
+          <a class="cta-main" href="#projects">
+            DISCOVER PROJECTS
+            <span class="cta-icon">→</span>
+          </a>
+        </section>
+      </main>
+
+      <section class="sections">
+        <article id="about" class="card">
+          <span class="section-kicker">Profile</span>
+          <h2>About</h2>
+          <p class="lede">
+            Product-minded software engineer focused on building reliable web platforms and blockchain-enabled applications.
+            I combine hands-on delivery experience with strong systems thinking, and I am actively pursuing roles in tech,
+            web3, and fintech teams where shipping quality and learning fast both matter.
+          </p>
+          <ul class="list tight">
+            <li>Builds end-to-end features from architecture and data flow to polished UI.</li>
+            <li>Comfortable with fast iterations, ambiguous requirements, and cross-functional collaboration.</li>
+            <li>Strong interest in transaction systems, security-minded development, and scalable product design.</li>
+          </ul>
+          <div class="chips" aria-label="Career focus">
+            <span class="chip">Tech Product Engineering</span>
+            <span class="chip">Web3 Infrastructure</span>
+            <span class="chip">Fintech Systems</span>
+            <span class="chip">Full-Stack Delivery</span>
+          </div>
+          <div class="socials">
+            <a href="https://www.linkedin.com/in/yee-lok-chiu-7b7ab42b2" target="_blank" rel="noreferrer">LinkedIn</a>
+            <a href="https://github.com/" target="_blank" rel="noreferrer">GitHub</a>
+            <a href="mailto:enochchiu2003@gmail.com">Email</a>
+          </div>
+        </article>
+
+        <article class="card">
+          <span class="section-kicker success">Value Proposition</span>
+          <h2>What I Bring to Teams</h2>
+          <div class="impact-grid">
+            <div class="impact-item">
+              <h3>Engineering + Product</h3>
+              <p>Translates technical complexity into user-focused features with clear implementation priorities.</p>
+            </div>
+            <div class="impact-item">
+              <h3>Web3 + Security Mindset</h3>
+              <p>Grounded in blockchain fundamentals, cryptography concepts, and robust transaction workflows.</p>
+            </div>
+            <div class="impact-item">
+              <h3>Execution Under Pressure</h3>
+              <p>Delivers in deadline-driven environments while keeping code quality and communication standards high.</p>
+            </div>
+          </div>
+        </article>
+
+        <div class="grid-2">
+          <article id="education" class="card">
+            <span class="section-kicker">Academic Foundation</span>
+            <h2>Education</h2>
+            <ul class="list">
+              <li><strong>MSc in Blockchain Technology</strong>, The Hong Kong Polytechnic University (Expected 2026), GPA 3.91</li>
+              <li><strong>BSc (Hons) Computing</strong>, The Hong Kong Polytechnic University (2023-2025), GPA 3.17</li>
+              <li><strong>Associate in Information Technology</strong>, Hong Kong Community College (2021-2023), GPA 3.56</li>
+            </ul>
+          </article>
+
+          <article id="skills" class="card">
+            <span class="section-kicker">Technical Capabilities</span>
+            <h2>Skills</h2>
+            <ul class="list">
+              <li><strong>Languages:</strong> Java, Python, SQL, C, C++, HTML/CSS</li>
+              <li><strong>Blockchain:</strong> Ethereum concepts, smart contract foundations, cryptography fundamentals</li>
+              <li><strong>Web Engineering:</strong> UI implementation, component-driven interfaces, responsive front-end design</li>
+              <li><strong>Systems:</strong> Networking and cybersecurity fundamentals, data-driven workflow automation</li>
+              <li><strong>Analytical Tools:</strong> VBA and SQL for operational automation and reporting</li>
+            </ul>
+          </article>
+        </div>
+
+        <article id="projects" class="card">
+          <span class="section-kicker">Selected Work</span>
+          <h2>Featured Projects</h2>
+          <ul class="list">
+            <li>
+              <strong>Intelligent Healthcare System (Multimodal AI + IoT Medicine Management):</strong> Designed a practical home-use healthcare
+              workflow integrating multimodal inference and connected device coordination for medication support.
+            </li>
+            <li>
+              <strong>This Stirring of My Heart (Co-creation):</strong> Built interactive media experiences with Professor Wong Chung-yu;
+              selected for exhibition at the Hong Kong Palace Museum.
+            </li>
+            <li>
+              <strong>Nature and City:</strong> Developed an interactive digital artwork exploring how urbanization shapes human perception
+              and behavior in hybrid physical-digital spaces.
+            </li>
+            <li>
+              <strong>Spotlight:</strong> Marathon finisher in 2025 and 2026, demonstrating sustained discipline, execution consistency,
+              and resilience under long-horizon goals.
+            </li>
+          </ul>
+        </article>
+      </section>
+    </div>
+  </body>
+</html>
