@@ -2,11 +2,13 @@
 title: Blockchain intro
 description: A guide for knowing blockchain
 ---
-This beginner-to-intermediate guide explains blockchain architecture fundamentals, compares major platform designs
-
 ## Part 1: Core Architectural Themes
 
-## 1. Network Topology and Access Control
+Mainly blockchain is about distruebuted ledger to sharing the data around to keep no one control, and no single point of failure. 
+
+![alt text](../../../assets/blockchain-ledger.png)
+
+### 1. Network Topology and Access Control
 
 Blockchain networks differ by who can read state, submit transactions, and validate blocks.
 - Public/Permissionless chains:
@@ -16,7 +18,7 @@ Blockchain networks differ by who can read state, submit transactions, and valid
 	- Participants are known, approved, and role-based.
 	- Prioritize confidentiality, control, and predictable performance.
 
-## 2. Validators, Consensus, and Security Base
+### 2. Validators, Consensus, and Security Base
 
 Consensus is the trust engine that orders and finalizes transactions.
 
@@ -38,7 +40,7 @@ Security inheritance model:
 	- Independent consensus and validator set.
 	- Interact via bridges; do not inherit L1 base security.
 
-## 3. Operational Mechanics and Tokenomics
+### 3. Operational Mechanics and Tokenomics
 
 - Governance:
 	- On-chain: upgrades through token-based voting.
@@ -57,7 +59,7 @@ Security inheritance model:
 
 ## Part 2: Architecture Visualizations
 
-## Transaction Flow
+### Transaction Flow
 
 ```text
 [User signs transaction]
