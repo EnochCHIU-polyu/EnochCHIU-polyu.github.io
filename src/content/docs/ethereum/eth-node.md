@@ -1,5 +1,5 @@
 ---
-title: Ethereum Nodes
+title: Nodes
 description: A practical guide to Ethereum node roles, client architecture, and operations.
 ---
 

@@ -1,5 +1,5 @@
 ---
-title: Ethereum P2P Network
+title: P2P Network
 description: A guide to peer discovery, gossip, and propagation in Ethereum.
 ---
 

@@ -1,5 +1,5 @@
 ---
-title: Ethereum Accounts (20 Bytes)
+title: Accounts (20 Bytes)
 description: A guide to Ethereum account types, fields, and address generation.
 ---
 Ethereum accounts are identified by 20-byte addresses.
