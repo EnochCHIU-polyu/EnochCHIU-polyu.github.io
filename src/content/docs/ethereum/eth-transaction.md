@@ -88,13 +88,19 @@ $$
 
 Where `U` is the state transition function and `B_t` is the ordered transaction set in block `t`.
 
-### Transaction Creation and Propagation
+#### Transaction Creation and Propagation
 
 - Creation: Users or smart contracts create a transaction with nonce, gas settings, recipient, value, and optional calldata, then sign it cryptographically.
 - Broadcast: The signed transaction is sent to the peer-to-peer network, where nodes place it in their mempool (unconfirmed transaction pool).
 - Propagation: Nodes relay valid transactions to peers after basic checks (field validity and signature verification). Mempool policies such as fee prioritization and eviction affect relay and retention.
 
-### Transaction steps
+#### Transmitting Value to EOAs and Contracts
+
+Ethereum value transfers are processed based on the recipient type: Externally Owned Accounts (EOA) update balance, while contract interactions trigger specific functions or fallback functions, depending on the data payload.
+
+If a Contract Account (CA) cannot interact with ETH (meaning it lacks withdrawal logic) and does not have a fallback() or receive() function, **any ETH trapped inside it is permanently frozen.**
+
+#### Transaction steps
 
 [Detail flow with original code](/ethereum/eth-transaction-code/)
 
@@ -188,14 +194,14 @@ In post-Merge Ethereum, block construction is commonly separated from block prop
 6. The Consensus Layer proposes/gossips the block, and the local Execution Layer validates and executes the payload via Engine API.
 
 
-### Block Building Step
+#### Block Building Step
 1. **Fork-choice head selection (CL):** Before the auction, the proposer's CL determines the current canonical parent block for this slot. [Detail for PoS proposer selection](/ethereum/eth-pos/)
 2. **MEV-Boost auction:** Builders construct payloads on top of that parent and submit bids through relays; the proposer requests and compares relay headers.
 3. **Blind handshake:** The proposer signs the selected blinded header, and the relay releases the full execution payload for the winning bid path.
 4. **Block assembly for proposal (CL):** The proposer CL assembles the beacon block using the winning execution payload reference/data and proposer signature.
 
 
-### Estimated Transaction
+#### Estimated Transaction number in block
 
 Under Ethereum's current **30,000,000 max gas limit** per block, the number of transactions that can be selected depends on the average gas used per transaction.
 

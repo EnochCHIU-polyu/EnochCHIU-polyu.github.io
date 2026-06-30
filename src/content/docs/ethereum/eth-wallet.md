@@ -29,27 +29,52 @@ A terminal wallet script (`diy_wallet.py`) with four commands:
 Design target:
 
 - No MetaMask
-- No remote RPC provider
+- Self-hosted node preferred (public RPC allowed for learning)
 - No plaintext private key in code/config
 
 ---
 
 ## Prerequisites
 
-### 1) Local node
+### 1)  Node connection
 
-Run your own Geth JSON-RPC endpoint locally (`http://127.0.0.1:8545`), for example on:
+This guide is designed for a local node workflow, but running a full node can require significant hardware, storage, and bandwidth.
 
-- Ethereum mainnet (fully synced)
-- Sepolia/Holesky (testnets)
-- Local dev chain
+Choose one of these paths:
 
-Quick health check:
+1. **Full local node path** (recommended for long-term self-hosting)
+     - Run your own Geth JSON-RPC endpoint at `http://127.0.0.1:8545`.
+     - Typical options include Ethereum mainnet (fully synced), Sepolia/Holesky, or a local dev chain.
+     - Best for reliability, privacy, and learning full infrastructure ownership.
+
+2. **Quick testnet path** (recommended for first try)
+     - If you want to learn the wallet flow without managing node hardware first, use a Sepolia public RPC.
+     - Example:
+
+```bash
+python diy_wallet.py balance \
+    --rpc-url https://ethereum-sepolia-rpc.publicnode.com \
+    --keystore ./keystore/my-wallet.json
+```
+
+You can use the same `--rpc-url` pattern for `estimate` and `send`.
+
+Quick health checks:
+
+Local node (`127.0.0.1:8545`):
 
 ```bash
 curl -s -X POST http://127.0.0.1:8545 \
   -H "Content-Type: application/json" \
   --data '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}'
+```
+
+Custom RPC (example: Sepolia public endpoint):
+
+```bash
+curl -s -X POST https://ethereum-sepolia-rpc.publicnode.com \
+    -H "Content-Type: application/json" \
+    --data '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}'
 ```
 
 If this fails, the wallet script cannot work yet.
@@ -187,13 +212,13 @@ def parse_eth_amount(amount: str) -> Decimal:
     return dec
 
 
-def parse_gas_price_gwei(value: str) -> Decimal:
+def parse_gwei_positive(value: str, field_name: str) -> Decimal:
     try:
         dec = Decimal(value)
     except InvalidOperation as exc:
-        fail(f"Invalid gas price '{value}': {exc}")
+        fail(f"Invalid {field_name} '{value}': {exc}")
     if dec <= 0:
-        fail("Gas price must be greater than 0")
+        fail(f"{field_name} must be greater than 0")
     return dec
 
 
@@ -268,15 +293,21 @@ def estimate_transfer_gas(w3: Web3, sender: str, to: str, amount_eth: Decimal) -
     tx = {"from": sender, "to": to, "value": value_wei}
 
     gas_limit = w3.eth.estimate_gas(tx)
-    gas_price = w3.eth.gas_price
-    fee_wei = gas_limit * gas_price
+    base_fee = w3.eth.get_block("latest").baseFeePerGas
+    if base_fee is None:
+        fail("Connected network does not expose baseFeePerGas (EIP-1559 required)")
+    priority_fee = w3.eth.max_priority_fee
+    suggested_max_fee = base_fee * 2 + priority_fee
+    fee_wei = gas_limit * suggested_max_fee
 
     print(f"From: {sender}")
     print(f"To: {to}")
     print(f"Amount: {amount_eth} ETH ({value_wei} wei)")
     print(f"Estimated gas limit: {gas_limit}")
-    print(f"Gas price: {gas_price} wei")
-    print(f"Estimated fee: {w3.from_wei(fee_wei, 'ether')} ETH ({fee_wei} wei)")
+    print(f"Base fee: {base_fee} wei")
+    print(f"Priority fee: {priority_fee} wei")
+    print(f"Suggested max fee: {suggested_max_fee} wei")
+    print(f"Estimated max fee spend: {w3.from_wei(fee_wei, 'ether')} ETH ({fee_wei} wei)")
 
 
 def send_eth(
@@ -284,7 +315,8 @@ def send_eth(
     account: LoadedAccount,
     to: str,
     amount_eth: Decimal,
-    gas_price_gwei: Decimal | None,
+    max_fee_gwei: Decimal | None,
+    max_priority_fee_gwei: Decimal | None,
 ) -> None:
     sender = account.address
     value_wei = w3.to_wei(amount_eth, "ether")
@@ -292,14 +324,36 @@ def send_eth(
     chain_id = w3.eth.chain_id
 
     gas_limit = w3.eth.estimate_gas({"from": sender, "to": to, "value": value_wei})
-    gas_price = w3.eth.gas_price if gas_price_gwei is None else w3.to_wei(gas_price_gwei, "gwei")
+
+    # EIP-1559 fee selection with optional user overrides.
+    base_fee = w3.eth.get_block("latest").baseFeePerGas
+    if base_fee is None:
+        fail("Connected network does not expose baseFeePerGas (EIP-1559 required)")
+
+    default_priority_fee = w3.eth.max_priority_fee
+    max_priority_fee = (
+        w3.to_wei(max_priority_fee_gwei, "gwei")
+        if max_priority_fee_gwei is not None
+        else default_priority_fee
+    )
+
+    max_fee = (
+        w3.to_wei(max_fee_gwei, "gwei")
+        if max_fee_gwei is not None
+        else base_fee * 2 + max_priority_fee
+    )
+
+    if max_fee < max_priority_fee:
+        fail("maxFeePerGas must be greater than or equal to maxPriorityFeePerGas")
 
     tx = {
+        "type": 2,
         "nonce": nonce,
         "to": to,
         "value": value_wei,
         "gas": gas_limit,
-        "gasPrice": gas_price,
+        "maxFeePerGas": max_fee,
+        "maxPriorityFeePerGas": max_priority_fee,
         "chainId": chain_id,
     }
 
@@ -345,7 +399,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_send.add_argument("--keystore", required=True, help="Sender keystore file path")
     p_send.add_argument("--to", required=True, help="Recipient address")
     p_send.add_argument("--amount-eth", required=True, help="Amount in ETH, e.g. 0.01")
-    p_send.add_argument("--gas-price-gwei", help="Optional fixed gas price in gwei")
+    p_send.add_argument("--max-fee-gwei", help="Optional maxFeePerGas in gwei")
+    p_send.add_argument("--max-priority-fee-gwei", help="Optional maxPriorityFeePerGas in gwei")
 
     return parser
 
@@ -379,8 +434,13 @@ def main() -> None:
         return
 
     if args.command == "send":
-        gas_price = parse_gas_price_gwei(args.gas_price_gwei) if args.gas_price_gwei else None
-        send_eth(w3, loaded, to_addr, amount_eth, gas_price)
+        max_fee = parse_gwei_positive(args.max_fee_gwei, "max fee") if args.max_fee_gwei else None
+        max_priority_fee = (
+            parse_gwei_positive(args.max_priority_fee_gwei, "max priority fee")
+            if args.max_priority_fee_gwei
+            else None
+        )
+        send_eth(w3, loaded, to_addr, amount_eth, max_fee, max_priority_fee)
         return
 
     fail(f"Unsupported command: {args.command}")
@@ -430,14 +490,15 @@ python diy_wallet.py send \
   --amount-eth 0.01
 ```
 
-Optional fixed gas price:
+Optional EIP-1559 fee override:
 
 ```bash
 python diy_wallet.py send \
   --keystore ./keystore/my-wallet.json \
   --to 0xRecipientAddress \
   --amount-eth 0.01 \
-  --gas-price-gwei 2.5
+    --max-priority-fee-gwei 2 \
+    --max-fee-gwei 60
 ```
 
 ---
@@ -465,7 +526,7 @@ Yes, it works on Ethereum mainnet if your local Geth is synced to mainnet.
   Balance cannot cover `amount + gas`.
 
 - **replacement transaction underpriced**  
-  Same nonce already pending with higher fee; increase gas price or wait.
+    Same nonce already pending with higher fee; raise max fee / priority fee or wait.
 
 - **receipt timeout**  
   Node not syncing or network congestion; inspect tx hash on explorer / local RPC.
@@ -474,7 +535,7 @@ Yes, it works on Ethereum mainnet if your local Geth is synced to mainnet.
 
 ## Next improvements (if you continue building)
 
-- Add EIP-1559 transaction mode (`maxFeePerGas`, `maxPriorityFeePerGas`)
+- Add automatic fee bumping for replacement transactions
 - Add token transfers (ERC-20)
 - Add nonce management for concurrent sends
 - Add offline signing mode (air-gapped workflow)

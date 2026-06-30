@@ -263,6 +263,93 @@ $$
 
 The signature verifies successfully, without revealing private key $d$ or nonce $k$.
 
+### 6. EIP-1559 Signing Example (ethers.js)
+
+This example shows how local signing works in practice with ECDSA, then broadcasts the signed raw transaction.
+
+Install and run:
+
+```bash
+npm install ethers
+node eip1559_tx.js
+```
+
+```js
+import { ethers } from "ethers";
+
+async function main() {
+	// Create provider with your RPC endpoint
+	const provider = new ethers.JsonRpcProvider("https://ethereum-sepolia-rpc.publicnode.com");
+
+	// Use an environment variable or secure vault in real usage.
+	const privKey = process.env.PRIVATE_KEY || "0xYOUR_PRIVATE_KEY";
+	if (privKey === "0xYOUR_PRIVATE_KEY") {
+		throw new Error("Set PRIVATE_KEY before running this script.");
+	}
+
+	// Create a wallet instance
+	const wallet = new ethers.Wallet(privKey, provider);
+
+	// Get nonce and create transaction data
+	const txData = {
+		nonce: await provider.getTransactionCount(wallet.address),
+		to: "0xb0920c523d582040f2bcb1bd7fb1c7c1ecebdb34",
+		value: ethers.parseEther("0.0001"),
+		gasLimit: ethers.toBeHex(0x30000),
+		maxFeePerGas: ethers.parseUnits("100", "gwei"),
+		maxPriorityFeePerGas: ethers.parseUnits("2", "gwei"),
+		data: "0x",
+		chainId: 11155111,
+	};
+
+	// Calculate RLP-encoded unsigned transaction hash
+	const unsignedTx = ethers.Transaction.from(txData).unsignedSerialized;
+	console.log("RLP-Encoded Tx (Unsigned):", unsignedTx);
+	const txHash = ethers.keccak256(unsignedTx);
+	console.log("Tx Hash (Unsigned):", txHash);
+
+	// Sign the transaction locally
+	const signedTx = await wallet.signTransaction(txData);
+	console.log("Signed Raw Transaction:", signedTx);
+
+	// Broadcast and wait for confirmation
+	const txResponse = await provider.broadcastTransaction(signedTx);
+	console.log("Transaction Hash:", txResponse.hash);
+	const receipt = await txResponse.wait();
+	console.log("Transaction Receipt:", receipt);
+}
+
+main().catch(console.error);
+```
+
+```
+$ node eip1559_tx.js 
+RLP-Encoded Tx (Unsigned): 0x02f283aa36a714847735940085174876e8008303000094b0920c523d582040f2bcb1bd7fb1c7c1ecebdb34865af3107a400080c0
+Tx Hash (Unsigned): 0x31d43a580534a77c71324a8434df6f2df993b3d551b29d4b70d8a889768a53f7
+Signed Raw Transaction: 0x02f87583aa36a714847735940085174876e8008303000094b0920c523d582040f2bcb1bd7fb1c7c1ecebdb34865af3107a400080c001a03f8ed18cb03ee0fe3fbc3f0a7477a2f68db6ec84450e77e702b82a3f2c873aa4a0205c4f6a16ea8ad13a148cc3105814cd4a6860cd26a771651199c85ccb7c7f0f
+Transaction Hash: 0x07bfbeb337e19763a1f74d989dae2953807dcb06822354cfefb16405a11beb93
+Transaction Receipt:  TransactionReceipt {
+  provider: JsonRpcProvider {},
+  to: '0xB0920c523d582040f2BCB1bD7FB1c7C1ECEbdB34',
+  from: '0x7e41354AfE84800680ceB104c5Fc99eCB98A25f0',
+  contractAddress: null,
+  hash: '0x07bfbeb337e19763a1f74d989dae2953807dcb06822354cfefb16405a11beb93',
+  index: 1,
+  blockHash: '0x0ac051e8f615805c69eec6e193e39637adeb7cf314a0098d455e7d9ac395a7ee',
+  blockNumber: 7135937,
+  logsBloom: '0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
+  gasUsed: 21000n,
+  blobGasUsed: null,
+  cumulativeGasUsed: 42000n,
+  gasPrice: 3096751769n,
+  blobGasPrice: null,
+  type: 2,
+  status: 1,
+  root: undefined
+}
+
+```
+
 
 ## Part 3: Hashing and Address Derivation
 

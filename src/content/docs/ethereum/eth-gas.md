@@ -5,6 +5,14 @@ description: A guide to gas metering, fee calculation, and base fee adjustment.
 
 Gas is Ethereum's metering system. It prevents infinite computation and helps protect the network from denial-of-service behavior.
 
+
+## Part 0: "Correct" Gas Price
+
+```bash
+//cast should be installed
+$ cast gas-price --rpc-url https://ethereum-sepolia-rpc.publicnode.com
+4845187414
+```
 ## Part 1: Ideal Fee Formula by gasUsed 
 
 Note: Real tx should use gasLimit as input!
