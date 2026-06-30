@@ -81,6 +81,8 @@ $$
 
 The **Elliptic Curve Digital Signature Algorithm (ECDSA)** is the protocol Ethereum uses to authorize transactions.
 
+![ECDSA](../../../assets/ECDSA.png)
+
 The basic elliptic-curve relation,
 
 $$
@@ -164,6 +166,102 @@ $$
 - A fresh nonce $k$ must be used for every signature. If $k$ is reused, the private key can be recovered with algebra.
 
 In short, ECDSA lets Ethereum prove authorization mathematically, while keeping the private key secret.
+
+### 5. Mini Worked Example (ECDSA)
+
+To make this mechanism concrete, here is a small ECDSA walkthrough with tiny numbers.
+
+In blockchains and smart contracts, transaction authorization is backed by these same math operations. Real systems use extremely large values, but this toy example keeps numbers small so every step can be checked by hand.
+
+#### 5.1 Setup (Domain Parameters)
+
+Define a mini curve setting and message:
+
+- Curve order $n = 11$ (so $11G = \mathcal{O}$, and scalar arithmetic is modulo 11)
+- Private key $d = 4$
+- Public key $Q = dG = 4G$
+- Message hash integer $z = 5$
+
+#### 5.2 Signing Process (Blue Path)
+
+We generate a signature $(r, s)$ for $z = 5$ with private key $d = 4$.
+
+1. Choose nonce $k = 3$ with $1 \le k \le n-1$.
+2. Compute point $kG = 3G$. For this example, assume the $x$-coordinate of $3G$ is $x = 6$.
+3. Compute:
+
+$$
+r = x \bmod n = 6 \bmod 11 = 6
+$$
+
+4. Compute $s = k^{-1}(z + rd) \bmod n$.
+	First find $k^{-1}$ modulo 11. Since $3 \times 4 = 12 \equiv 1 \pmod{11}$, we have $k^{-1} = 4$.
+5. Substitute values:
+
+$$
+s = 4 \times (5 + 6 \times 4) \bmod 11
+$$
+
+$$
+s = 4 \times (5 + 24) \bmod 11
+$$
+
+$$
+s = 4 \times 29 \bmod 11
+$$
+
+$$
+s = 116 \bmod 11 = 6
+$$
+
+Final signature:
+
+$$
+(r, s) = (6, 6)
+$$
+
+#### 5.3 Verification Process (Red Path)
+
+Now a verifier has $z = 5$, $Q = 4G$, and $(r, s) = (6, 6)$.
+
+1. Compute $w = s^{-1} \bmod n$.
+	Since $6 \times 2 = 12 \equiv 1 \pmod{11}$, $w = 2$.
+2. Compute:
+
+$$
+u_1 = zw \bmod n = 5 \times 2 \bmod 11 = 10
+$$
+
+$$
+u_2 = rw \bmod n = 6 \times 2 \bmod 11 = 1
+$$
+
+3. Compute verification point:
+
+$$
+X = u_1G + u_2Q = 10G + 1(4G) = 14G
+$$
+
+4. Reduce by group order $n=11$:
+
+$$
+X = (14 \bmod 11)G = 3G
+$$
+
+#### 5.4 Final Check (Arrow Intersection)
+
+The verifier got $X = 3G$, which matches the signer's earlier point $kG = 3G$.
+Therefore the $x$-coordinate also matches:
+
+$$
+x_X \bmod 11 = r
+$$
+
+$$
+6 = 6
+$$
+
+The signature verifies successfully, without revealing private key $d$ or nonce $k$.
 
 
 ## Part 3: Hashing and Address Derivation
