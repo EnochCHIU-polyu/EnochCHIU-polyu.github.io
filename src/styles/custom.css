@@ -10,7 +10,16 @@ html[data-theme='dark'] {
 	--color-card-muted: 205, 205, 205;
 	--color-border: 236, 233, 233;
 
-	--sl-content-width: 45rem;
+	/* Responsive reading width: wider on large screens, still comfortable on small screens. */
+	--sl-content-width: clamp(48rem, 62vw, 76rem);
+}
+
+@media (max-width: 50rem) {
+	:root,
+	html[data-theme='light'],
+	html[data-theme='dark'] {
+		--sl-content-width: 100%;
+	}
 }
 
 /* Hide Starlight's theme switcher to keep UI strictly light mode. */
@@ -206,5 +215,12 @@ html {
 	html[data-desktop-sidebar-collapsed] .sidebar-content {
 		opacity: 0;
 		pointer-events: none;
+	}
+}
+
+@media (min-width: 72rem) {
+	/* Balance spacing when both left sidebar and right TOC are visible. */
+	html[data-has-sidebar][data-has-toc] .main-pane {
+		--sl-content-margin-inline: auto;
 	}
 }

@@ -36,7 +36,7 @@ Design target:
 
 ## Prerequisites
 
-## 1) Local node
+### 1) Local node
 
 Run your own Geth JSON-RPC endpoint locally (`http://127.0.0.1:8545`), for example on:
 
@@ -54,7 +54,7 @@ curl -s -X POST http://127.0.0.1:8545 \
 
 If this fails, the wallet script cannot work yet.
 
-## 2) Python environment
+### 2) Python environment
 
 ```bash
 python3 -m venv .venv
@@ -62,6 +62,49 @@ source .venv/bin/activate
 pip install web3
 ```
 
+---
+
+## DIY wallet requirements (must-have)
+
+A DIY wallet is flexible, but it is **not** free-form. If you want it to work safely on Ethereum, your implementation should follow these baseline requirements:
+
+1. **Key/account correctness**
+   - Use Ethereum-compatible secp256k1 keypairs.
+   - Derive and validate addresses correctly (with checksum when used in UI/CLI).
+2. **Keystore standard**
+   - Store private keys in encrypted **Web3 Secret Storage V3** JSON format.
+   - Never hardcode or store raw private keys in source/config.
+3. **Transaction correctness**
+   - Build tx with correct `nonce`, `chainId`, `to`, `value`, and gas fields.
+   - Sign locally and broadcast raw signed bytes (`eth_sendRawTransaction`).
+
+    Example (EIP-1559 transaction request):
+
+```ts
+const txRequest = {
+     to: "0x742d35Cc6634C0532925a3b844Bc454e4438f44e", // Recipient address
+     value: ethers.parseEther("0.1"),                  // Amount to send (0.1 ETH)
+     nonce: nonce,
+     chainId: chainId,
+     gasLimit: 21000,                                  // Standard gas limit for ETH transfer
+
+     // EIP-1559 gas pricing (recommended over legacy gasPrice)
+     maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
+     maxFeePerGas: feeData.maxFeePerGas,
+};
+```
+
+
+
+4. **RPC compatibility**
+   - Use standard JSON-RPC calls (`eth_getBalance`, `eth_estimateGas`, `eth_sendRawTransaction`, etc.).
+   - Handle node/network errors explicitly.
+5. **Security baseline**
+   - Prompt passwords securely (`getpass`).
+   - Keep key material in memory for shortest time possible and wipe after use.
+   - Restrict keystore file permissions (for example `0600` on Linux/macOS).
+
+In short: you can customize UX and code structure, but these core protocol + security functions are required.
 ---
 
 ## Security model (important)
@@ -349,9 +392,9 @@ if __name__ == "__main__":
 
 ---
 
-## How to run it (step-by-step)
+## What this wallet can do
 
-## 1) Create wallet
+### 1) Create wallet
 
 ```bash
 python diy_wallet.py create --keystore ./keystore/my-wallet.json
@@ -359,17 +402,17 @@ python diy_wallet.py create --keystore ./keystore/my-wallet.json
 
 You will enter password twice. Output includes your new address.
 
-## 2) Fund address
+### 2) Fund address
 
 Send ETH to that address (from faucet/test wallet/another account) so it can pay gas.
 
-## 3) Check balance
+### 3) Check balance
 
 ```bash
 python diy_wallet.py balance --keystore ./keystore/my-wallet.json
 ```
 
-## 4) Estimate fee before sending
+### 4) Estimate fee before sending
 
 ```bash
 python diy_wallet.py estimate \
@@ -378,7 +421,7 @@ python diy_wallet.py estimate \
   --amount-eth 0.01
 ```
 
-## 5) Send ETH
+### 5) Send ETH
 
 ```bash
 python diy_wallet.py send \

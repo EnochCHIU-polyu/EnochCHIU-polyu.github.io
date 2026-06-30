@@ -2,6 +2,17 @@
 title: Transaction Processing
 description: A guide to Ethereum block structure, transaction fields, and lifecycle.
 ---
+# Ethereum Transaction types
+
+| Type Identifier | Name                  | Pros                                                  |
+| --------------- | --------------------- | ----------------------------------------------------- |
+| `0x00`          | Legacy transactions   | Simple and widely supported by old tooling.           |
+| `0x01`          | EIP-2930 transactions | Access lists can reduce first-touch gas uncertainty.  |
+| `0x02`          | EIP-1559 transactions | Predictable fees with base fee plus adjustable tip.   |
+| `0x03`          | EIP-4844 transactions | Much cheaper blob data for rollup data availability.  |
+| `0x04`          | EIP-7702 transactions | Temporarily adds smart-account-like behavior to EOAs. |
+
+
 
 # Ethereum Transaction
 
@@ -11,7 +22,7 @@ description: A guide to Ethereum block structure, transaction fields, and lifecy
 
 [eth transaction](https://gist.github.com/stonegao/16b8a30d98c4723f04f8259b7eda5da8)
 
-## Part 1: Transaction-Relevant Header Fields
+## Part 1: Block Header Fields
 
 | Header Field            | Category           | Meaning                                      | Why It Matters for Tx                                   |
 | ----------------------- | ------------------ | -------------------------------------------- | ------------------------------------------------------- |
@@ -124,6 +135,17 @@ Once the transaction passes validation, it is added to the transaction pool:
 * **Queued:** If there is a gap in the nonce (e.g., a missing previous transaction), it is placed in the queued list.
 * **Pending:** If the transaction is immediately executable, it goes into the pending list.
 
+![pool](../../../assets/tx-pool.png)
+
+WS = World State, Tx = Transaction.
+
+| Nonce Function             | Practical Effect                                                                        |
+| -------------------------- | --------------------------------------------------------------------------------------- |
+| Prevent replay attacks     | Makes each transaction unique, preventing copy-and-resend attacks.                      |
+| Enforce transaction order  | Forces transactions from the same account to execute in sequence.                       |
+| Replace stuck transactions | Lets you resubmit the same nonce with a higher fee to speed up or replace a pending tx. |
+| Track account history      | Acts as a running counter of confirmed outgoing transactions for the account.           |
+
 ### 4. Broadcasting to Peers
 
 The node shares the new transaction with the rest of the network:
@@ -141,17 +163,21 @@ In post-Merge Ethereum, block construction is commonly separated from block prop
 * **Users and Searchers:** Users submit normal transactions (for example, raw transactions), while searchers submit bundles and orderflow designed for MEV strategies.
 * **Builders:** Builders aggregate public mempool flow, private orderflow, and bundles, then construct candidate execution payloads and calculate bid value.
 * **Relays:** Relays verify builder payload validity, publish **blinded** bids/headers, and route the winning payload path to the selected proposer.
+* **Escrows:** Escrows receive full execution payloads from relays to provide redundant data availability, and are trusted by relays for payload privacy.
 * **Validator (Proposer):** The proposer requests headers, selects the highest-value valid bid, signs the selected header path, and proposes the corresponding beacon block through the Consensus Layer.
+
+![MEV-Boost](../../../assets/MEV-boost.png)
 
 #### Role Onboarding (Registration vs Integration)
 
-| Role                                          | Protocol Registration Required | How to Start                                                                               | Key Requirements                                      |
-| --------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
-| User                                          | No                             | Use a wallet and submit transactions to RPC endpoints                                      | Wallet, ETH for gas                                   |
-| Searcher                                      | No                             | Run search/strategy bots and submit bundles or orderflow to builders/relays                | MEV strategy logic, low-latency infra                 |
-| Builder                                       | No                             | Run builder stack, ingest mempool and private flow, construct and bid payloads via relays  | Builder software, simulation engine, networking       |
-| Relay Operator                                | No                             | Operate relay service that validates builder payloads and serves blinded bids to proposers | High availability infra, validation and routing logic |
-| Validator (Proposer)                          | Yes                            | Run consensus and execution clients and activate validator via Ethereum deposit flow       | 32 ETH stake per validator, CL+EL operation           |
+| Role                 | Protocol Registration Required | How to Start                                                                               | Key Requirements                                      |
+| -------------------- | ------------------------------ | ------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
+| User                 | No                             | Use a wallet and submit transactions to RPC endpoints                                      | Wallet, ETH for gas                                   |
+| Searcher             | No                             | Run search/strategy bots and submit bundles or orderflow to builders/relays                | MEV strategy logic, low-latency infra                 |
+| Builder              | No                             | Run builder stack, ingest mempool and private flow, construct and bid payloads via relays  | Builder software, simulation engine, networking       |
+| Relay Operator       | No                             | Operate relay service that validates builder payloads and serves blinded bids to proposers | High availability infra, validation and routing logic |
+| Escrow               | No                             | Operate an escrow endpoint that receives full payloads from relays for redundant availability | Trusted privacy handling, high-availability storage/networking |
+| Validator (Proposer) | Yes                            | Run consensus and execution clients and activate validator via Ethereum deposit flow       | 32 ETH stake per validator, CL+EL operation           |
 
 #### MEV-Boost Flow
 1. Users and searchers send transactions or bundles to builders.
