@@ -6,16 +6,22 @@ Ethereum accounts are identified by 20-byte addresses.
 ![Account Overview](../../../assets/eth-account.png)
 ## Part 1: Account State Fields
 
-Each Ethereum account stores four core fields:
+In the Ethereum execution state, each account has four canonical fields:
 
 - `nonce`
 - `balance`
-- `code`
-- `storage`
+- `storageRoot`
+- `codeHash`
+
+Notes:
+
+- `nonce`: for EOAs, number of transactions sent; for contract accounts, number of contracts created via `CREATE`.
+- `storageRoot`: root hash of the contract storage trie (empty trie root for EOAs).
+- `codeHash`: hash of account bytecode (empty code hash for EOAs).
 
 ## Part 2: Account Types
 
-Ethereum has two account types. Both use the same four-field state model, but `code` and `storage` usage differs.
+Ethereum has two account types. Both follow the same four-field state model, but practical code/storage behavior differs.
 
 ### Externally Owned Account (EOA)
 
@@ -23,7 +29,7 @@ Ethereum has two account types. Both use the same four-field state model, but `c
 - Can initiate transactions.
 - `code` is empty.
 - `storage` is empty.
-- Creating an EOA does not require contract deployment gas.
+- Creating an EOA does not require deployment; it typically first appears in state when funded or when it sends its first transaction.
 
 ### Contract Account
 
@@ -39,20 +45,20 @@ Ethereum has two account types. Both use the same four-field state model, but `c
 
 1. Generate a private key `sk` (ECDSA over `secp256k1`).
 2. Derive public key `pk` from `sk`.
-3. Compute `keccak256(pk)`.
+3. Compute `keccak256(pk[1:])` using the uncompressed public key without the `0x04` prefix byte.
 4. Take the last 20 bytes (160 bits) of that hash as the Ethereum address.
 
 Example:
 
-- `keccak256(pk) = 2a5bc342ed616b5ba5732269001d3f1ef827552ae1114027bd3ecf1f086ba0f9001d3f1ef827552ae1114027bd3ecf1f086ba0f9`
+- `keccak256(pk[1:]) = 2a5bc342ed616b5ba5732269001d3f1ef827552ae1114027bd3ecf1f086ba0f9001d3f1ef827552ae1114027bd3ecf1f086ba0f9`
 - `address = 0x001d3f1ef827552ae1114027bd3ecf1f086ba0f9`
 
 ### Contract Address Derivation
 
 Contract addresses are derived from deployment context:
 
-- `CREATE`: `new_address = hash(sender, nonce)`
-- `CREATE2`: `new_address = hash(0xFF, sender, salt, bytecode)`
+- `CREATE`: `new_address = keccak256(rlp([sender, nonce]))[12:]`
+- `CREATE2`: `new_address = keccak256(0xff ++ sender ++ salt ++ keccak256(init_code))[12:]`
 
 Both methods produce a contract address, but `CREATE2` enables deterministic address computation before deployment.
 

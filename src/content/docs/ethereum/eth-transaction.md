@@ -40,9 +40,9 @@ description: A guide to Ethereum block structure, transaction fields, and lifecy
 
 [Trie explanation](https://medium.com/@ricore77.eth/understanding-ethereum-structures-world-state-trie-transaction-trie-receipts-and-account-d96ab74bb2ac)
 
-Trie (specifically the Modified Merkle Patricia Trie) is a data structure used to stores three distinct root hashes that serve as the "fingerprints" for three different types of global data.
+Trie (specifically the Modified Merkle Patricia Trie) is the structure used to commit three roots in the header (`stateRoot`, `transactionsRoot`, `receiptsRoot`).
 
-## Part 2: Core Transaction Body [developers|docs](https://ethereum.org/developers/docs/transactions/)
+## Part 2: Core Transaction Body ([Developers Docs](https://ethereum.org/developers/docs/transactions/))
 
 An Ethereum transaction is a signed message that requests value transfer or contract execution.
 
@@ -66,7 +66,7 @@ An Ethereum transaction is a signed message that requests value transfer or cont
 
 ## Part 3: Transaction Lifecycle
 
-A request to modify the state of the blockchain signed by the originating account
+A transaction is a signed, externally originated request to modify execution-layer state.
 
 ```text
 world state sigma_t
@@ -86,19 +86,21 @@ $$
 sigma_{t+1} = U(sigma_t, B_t)
 $$
 
-Where `U` is the state transition function and `B_t` is the ordered transaction set in block `t`.
+Where `U` is the block transition function and `B_t` is the ordered payload content processed at height `t`.
+
+In modern Ethereum, block processing includes both transactions and protocol-level payload fields (for example withdrawals), so the post-state is not a function of transactions alone.
 
 #### Transaction Creation and Propagation
 
-- Creation: Users or smart contracts create a transaction with nonce, gas settings, recipient, value, and optional calldata, then sign it cryptographically.
+- Creation: EOAs (or account-abstraction style user flows that still resolve to valid EL transaction envelopes) create a transaction with nonce, fee settings, recipient, value, and optional calldata, then sign it cryptographically.
 - Broadcast: The signed transaction is sent to the peer-to-peer network, where nodes place it in their mempool (unconfirmed transaction pool).
 - Propagation: Nodes relay valid transactions to peers after basic checks (field validity and signature verification). Mempool policies such as fee prioritization and eviction affect relay and retention.
 
 #### Transmitting Value to EOAs and Contracts
 
-Ethereum value transfers are processed based on the recipient type: Externally Owned Accounts (EOA) update balance, while contract interactions trigger specific functions or fallback functions, depending on the data payload.
+Ethereum value transfers are processed based on the recipient type: transfers to EOAs only update balances, while transfers/calls to contracts can trigger code execution depending on calldata and whether `receive()`/`fallback()` is defined.
 
-If a Contract Account (CA) cannot interact with ETH (meaning it lacks withdrawal logic) and does not have a fallback() or receive() function, **any ETH trapped inside it is permanently frozen.**
+If a contract has no code path to move ETH out (for example, no callable withdrawal logic), ETH sent to it may become permanently inaccessible.
 
 #### Transaction steps
 
@@ -108,15 +110,15 @@ If a Contract Account (CA) cannot interact with ETH (meaning it lacks withdrawal
 
 When you submit a transaction, the path depends on how it is signed:
 
-* **Node-signed:** If you let the node sign the transaction, it enters through `SendTransaction`.
+* **Node-signed:** If you let the node sign the transaction, it enters through `eth_sendTransaction`.
 
-  Use SendRawTransaction when your app/user controls keys and you want the node to be broadcast-only.
+  Use `eth_sendRawTransaction` when your app/user controls keys and you want the node to be broadcast-only.
 
-* **Pre-signed:** If you have already signed the transaction yourself, it enters through `SendRawTransaction`.
+* **Pre-signed:** If you have already signed the transaction yourself, it enters through `eth_sendRawTransaction`.
  
-  Use SendRawTransaction when your app/user controls keys and you want the node to be broadcast-only.
+  `eth_sendTransaction` is often disabled on public RPC providers because it requires server-side key management.
 
-* Both of these paths eventually converge at `SubmitTransaction`, which then passes the transaction to the backend via `SendTx`.
+* Both of these paths eventually converge in the client submission path, which forwards the transaction into local validation and txpool admission.
 
 ```text
 [Node-Signed (eth_sendTransaction)]
@@ -134,12 +136,14 @@ Before entering the pool, the transaction undergoes multiple layers of checks:
 * **Txpool Stateless Validation:** Checks if the signature and sender are correct, if there is sufficient gas, if the transaction type matches current fork rules, and if structures like blobs or set-code are valid.
 * **Txpool Stateful Validation:** Verifies if the nonce is too high or too low, if the account balance is sufficient, and if it complies with the pool's gap and slot rules.
 
-### 3. Entering a node´s Txpool
+### 3. Entering a Node's Txpool
 
 Once the transaction passes validation, it is added to the transaction pool:
 
-* **Queued:** If there is a gap in the nonce (e.g., a missing previous transaction), it is placed in the queued list.
-* **Pending:** If the transaction is immediately executable, it goes into the pending list.
+* **Queued/Future:** If there is a nonce gap (for example, a missing prior nonce), many clients keep the tx in a non-executable subpool.
+* **Pending/Executable:** If the transaction can execute against current account nonce/balance constraints, it stays in an executable subpool.
+
+Exact subpool names and promotion/eviction policies are client-specific (for example, Geth/Erigon/Nethermind differ).
 
 ![pool](../../../assets/tx-pool.png)
 
@@ -157,19 +161,18 @@ WS = World State, Tx = Transaction.
 The node shares the new transaction with the rest of the network:
 
 * It broadcasts the transaction using an internal event system.
-* Depending on network rules, it may send the full transaction body directly, or it may just send the transaction hash (allowing peers to request the full body if they need it).
+* Depending on protocol path and peer state, propagation may use announcements first (hashes/IDs) with bodies requested on demand.
 * Propagation rules for blob transactions are strictly tighter than those for standard transactions.
 
 ### 5. Inclusion in a Block (Block Building)
 
-In post-Merge Ethereum, block construction is commonly separated from block proposal through **Proposer-Builder Separation (PBS)** infrastructure such as **MEV-Boost**. 
+In post-Merge Ethereum, block construction is commonly separated from block proposal through out-of-protocol **Proposer-Builder Separation (PBS)** infrastructure such as **MEV-Boost**.
 
 #### MEV-Boost Role Format
 
 * **Users and Searchers:** Users submit normal transactions (for example, raw transactions), while searchers submit bundles and orderflow designed for MEV strategies.
 * **Builders:** Builders aggregate public mempool flow, private orderflow, and bundles, then construct candidate execution payloads and calculate bid value.
 * **Relays:** Relays verify builder payload validity, publish **blinded** bids/headers, and route the winning payload path to the selected proposer.
-* **Escrows:** Escrows receive full execution payloads from relays to provide redundant data availability, and are trusted by relays for payload privacy.
 * **Validator (Proposer):** The proposer requests headers, selects the highest-value valid bid, signs the selected header path, and proposes the corresponding beacon block through the Consensus Layer.
 
 ![MEV-Boost](../../../assets/MEV-boost.png)
@@ -182,11 +185,10 @@ In post-Merge Ethereum, block construction is commonly separated from block prop
 | Searcher             | No                             | Run search/strategy bots and submit bundles or orderflow to builders/relays                | MEV strategy logic, low-latency infra                 |
 | Builder              | No                             | Run builder stack, ingest mempool and private flow, construct and bid payloads via relays  | Builder software, simulation engine, networking       |
 | Relay Operator       | No                             | Operate relay service that validates builder payloads and serves blinded bids to proposers | High availability infra, validation and routing logic |
-| Escrow               | No                             | Operate an escrow endpoint that receives full payloads from relays for redundant availability | Trusted privacy handling, high-availability storage/networking |
 | Validator (Proposer) | Yes                            | Run consensus and execution clients and activate validator via Ethereum deposit flow       | 32 ETH stake per validator, CL+EL operation           |
 
 #### MEV-Boost Flow
-1. Users and searchers send transactions or bundles to builders.
+1. Users and searchers send transactions or bundles to builders (directly or through orderflow channels).
 2. Builders construct execution payloads and submit them to relays.
 3. Relays validate payloads and expose bid headers to the slot proposer.
 4. The proposer selects a winning header/bid and signs the proposal path.
@@ -203,25 +205,25 @@ In post-Merge Ethereum, block construction is commonly separated from block prop
 
 #### Estimated Transaction number in block
 
-Under Ethereum's current **30,000,000 max gas limit** per block, the number of transactions that can be selected depends on the average gas used per transaction.
+The number of transactions selected in a block depends on that block's `gasLimit` and the gas profile of included transactions.
 
 1. Extreme theoretical upper bound (simple ETH transfers only)
 
-If all included transactions are the simplest ETH transfers (no smart contract interaction):
+If all included transactions are the simplest ETH transfers (no smart-contract execution):
 
 - **Gas per transaction:** fixed at **21,000 gas**.
-- **Calculation:** 30,000,000 / 21,000 = 1,428.57
-- **Conclusion:** one completely full block can contain about **1,428 transactions**.
+- **Example (if `gasLimit = 30,000,000`):** 30,000,000 / 21,000 = 1,428.57
+- **Conclusion for this example:** one completely full block can contain about **1,428 transactions**.
 
 #### How Many Transactions Would Be Selected in a Block?
 
 Use the block gas limit divided by average gas per transaction:
 
 $$
-TxPerBlock \approx \frac{30,000,000}{AvgGasPerTx}
+TxPerBlock \approx \frac{GasLimit_{block}}{AvgGasPerTx}
 $$
 
-For the pure ETH transfer upper-bound case:
+For the pure ETH transfer upper-bound example with `GasLimit_block = 30,000,000`:
 
 $$
 TxPerBlock_{max} \approx \frac{30,000,000}{21,000} \approx 1,428
@@ -251,7 +253,7 @@ The transaction is processed by the Ethereum Virtual Machine (EVM):
 
 1. **EL payload execution path:** EL clients execute/validate payloads through Engine API flows (for example new-payload handling).
 2. **Deterministic transaction execution:** The EVM runs transactions in order, applying nonce checks, gas accounting, state transitions, and logs.
-3. **Execution result status:** EL returns payload validity status and execution artifacts to CL for downstream consensus processing.
+3. **Execution result status:** EL returns payload validity (`VALID`/`INVALID`/`SYNCING`) and related status fields (for example `latestValidHash`) to CL for downstream fork-choice processing.
 
 ### 7. Generating Receipts and Updating State
 
@@ -265,7 +267,7 @@ After execution, the results are recorded:
 
 After the proposer signs the block, the **Consensus Layer (CL)** client is responsible for propagating it over the Beacon Chain p2p network:
 
-* The CL client (for example, Prysm or Lighthouse) broadcasts the beacon block and its execution payload to peers.
+* The CL client (for example, Prysm or Lighthouse) broadcasts the beacon block (which carries execution payload data/commitments for that fork version) to peers.
 * The **Execution Layer (EL)** client (for example, Geth) does not broadcast blocks to the network; it receives the payload locally from the CL through the **Engine API**.
 * This is the end of proposer-side publishing for the slot; network-wide voting and head movement happen after peers receive the block.
 * Other peers then run their own CL- and EL-side validation independently.

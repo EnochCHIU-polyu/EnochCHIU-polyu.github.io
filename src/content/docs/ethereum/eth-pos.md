@@ -17,9 +17,9 @@ Instead of selecting block producers by computational work, PoS selects particip
 
 ### 3. Terminology
 
-- In PoS, blocks are often described as forged or minted (rather than mined).
+- In PoS literature, blocks may be described as forged or minted (rather than mined).
 - Participants are validators (also called forgers in some networks).
-- Ethereum terminology primarily uses proposer and validator/attester roles.
+- Ethereum terminology primarily uses proposer and validator/attester roles; "mining" is not used post-Merge.
 
 ## Part 2: Ethereum Beacon Chain and Validator Onboarding
 
@@ -43,13 +43,13 @@ Post-Pectra (Prague-Electra) note:
 
 - Deposited: deposit accepted and queued for activation pipeline.
 - Pending: waiting for activation based on churn limits and network conditions.
-- Active: assigned committees and eligible for **proposing/ validating**.
+- Active: assigned committees and eligible for **proposing/attesting**.
 
 Operational notes:
 
 - Queue waiting time is dynamic and can vary significantly with validator churn.
 - Via **EIP-6110**, deposit data is sourced from execution-layer blocks, reducing deposit processing latency before activation-queue effects.
-- Via **EIP-7002**, execution-layer triggered withdrawal/exit flows are supported, reducing dependence on operator-pre-signed exit coordination.
+- Via **EIP-7002** (on networks where activated), execution-layer triggered withdrawal/exit flows are supported, reducing dependence on operator-pre-signed exit coordination.
 
 ## Part 3: Overview
 
@@ -61,7 +61,7 @@ Operational notes:
 
 - Validators are shuffled into committees for attestation duties.
 - During an epoch, active validators are assigned to committees by protocol randomness.
-- Committee size targets security and liveness; practical minimum assumptions are often discussed around **128 validators**.
+- Ethereum defines a target committee size (commonly referenced as 128), but realized committee sizes can vary with active validator count and protocol limits.
 
 ### 2. RANDAO Randomness Pipeline
 
@@ -81,7 +81,7 @@ Why this matters:
 ### 1. Block Proposal
 
 - For each slot, one proposer is randomly selected.
-- In modern Ethereum operations, proposer-builder separation ecosystems can provide payloads, while the proposer still publishes the beacon block.
+- In modern Ethereum operations, out-of-protocol proposer-builder separation ecosystems can provide payloads, while the proposer still publishes the beacon block.
 
 ### 2. Attestation Voting
 
@@ -91,10 +91,10 @@ Why this matters:
 
 At the slot level, one validator proposes a block and the committee votes by submitting attestations. A typical attestation includes:
 
-- The proposed block for that slot.
-- The current chain head the validator considers valid.
-- The first block of the current epoch, called the **target** checkpoint.
-- The first block of the previous justified epoch, called the **source** checkpoint.
+- The attestation `slot` and `committee index`.
+- The `beacon_block_root` for the head being voted.
+- The **target** checkpoint (current epoch checkpoint vote).
+- The **source** checkpoint (previous justified checkpoint reference).
 - The validator's signature proving the vote came from that validator.
 
 ### 3. BLS Aggregation
@@ -120,8 +120,8 @@ Ethereum penalizes slashable behavior such as:
 ### 3. Penalty Effects (High Level)
 
 - Forced exit from active duties.
-- Post-Pectra initial slash penalty is commonly described as about **1/4096 of effective balance** (a large reduction versus older 1/32-era summaries).
-- Withdrawal/exit delay is commonly summarized as roughly **36 days** before funds are fully withdrawable.
+- Initial slash penalties and correlated penalties are protocol-parameterized and can change across hard forks.
+- Full withdrawability timing depends on exit queue and withdrawability delay; it is not a single fixed wall-clock constant.
 
 Exact penalty size depends on protocol rules and surrounding slash events.
 
@@ -136,7 +136,13 @@ Exact penalty size depends on protocol rules and surrounding slash events.
 Common base-reward study formula form:
 
 $$
-BaseReward = \frac{EffectiveBalance \times 64}{\sqrt{TotalActiveBalance}}
+BaseReward = \frac{EffectiveBalance \times BASE\_REWARD\_FACTOR}{\sqrt{TotalActiveBalance} \times BASE\_REWARDS\_PER\_EPOCH}
+$$
+
+On mainnet constants this is commonly expressed as:
+
+$$
+BaseReward = \frac{EffectiveBalance \times 64}{\sqrt{TotalActiveBalance} \times 4}
 $$
 
 Post-Pectra interpretation:
@@ -165,7 +171,7 @@ Assume:
 Formula:
 
 $$
-BaseReward = \frac{EffectiveBalance \times 64}{\sqrt{TotalActiveBalance}}
+BaseReward = \frac{EffectiveBalance \times 64}{\sqrt{TotalActiveBalance} \times 4}
 $$
 
 With:
@@ -177,7 +183,7 @@ $$
 So a commonly cited simplified result is:
 
 $$
-BaseReward \approx 14,780\ gwei
+BaseReward \approx 3,695\ gwei
 $$
 
 Assumption note: this numeric result depends on the 32 ETH-per-validator simplification and is a study example, not a universal post-Pectra constant.
@@ -201,7 +207,7 @@ $$
 Then a simplified estimate is:
 
 $$
-ProposerReward \approx 18,750 \times \frac{1}{8} \times 14,780 = 34,640,625\ gwei
+ProposerReward \approx 18,750 \times \frac{1}{8} \times 3,695 = 8,660,156\ gwei
 $$
 
 Depending on lecture constants/rounding assumptions, you may also see nearby values.
@@ -217,7 +223,7 @@ $$
 Using the same base reward:
 
 $$
-AttesterReward_{max} \approx \frac{7}{8} \times 14,780 = 12,932.5\ gwei
+AttesterReward_{max} \approx \frac{7}{8} \times 3,695 = 3,233.125\ gwei
 $$
 
 #### D) Slashing-Inclusion Reward (Proposer)
@@ -239,6 +245,10 @@ Algorithms used in Ethereum PoS:
 
 - **Casper FFG:** checkpoint justification/finalization mechanism across epochs.
 - **LMD-GHOST:** fork-choice rule used to determine the current chain head before and between finality events.
+
+Engine API coordination note:
+
+- CL fork-choice updates are communicated to EL via Engine API (for example forkchoice-updated flows) so payload building/validation tracks the CL-selected head.
 
 ## Part 8: Alternative Selection Model - Coin Age
 

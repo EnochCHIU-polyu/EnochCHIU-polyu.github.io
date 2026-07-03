@@ -1,541 +1,194 @@
 ---
-title: DIY Ethereum Wallet (Python + Local Geth)
-description: Build a minimal Ethereum wallet from scratch with web3.py, local keystore encryption, and local transaction signing.
+title: Ethereum Wallets
+description: A protocol-accurate guide to EOAs, smart wallets, key derivation, custody models, and account abstraction.
 ---
 
-## Why this wallet exists
+## Part 1: What a Wallet Is (Execution-Layer Precise)
 
-Most wallet tutorials hide core mechanics behind browser extensions or hosted RPC providers.  
-This page focuses on a **self-hosted wallet flow** so you understand every step:
+An Ethereum wallet is primarily a key-management and signing system, not an on-chain account itself.
 
-1. Generate and own your account keys.
-2. Store private keys in encrypted V3 keystore files.
-3. Talk directly to your own Geth node.
-4. Sign transactions locally, then broadcast raw tx bytes.
+At the execution layer (EL), the chain processes signed transactions and state transitions. Wallet software does three core jobs:
 
-This is the same core architecture used by many backend wallet services.
+1. Manages signing authority (private keys or equivalent signing shares).
+2. Builds/signs transaction payloads (or UserOperations for ERC-4337 flows).
+3. Broadcasts data to the appropriate network path (public txpool, private relay, or ERC-4337 bundler path).
 
----
+Important distinction:
 
-## What you will build
+- Wallet: off-chain software/hardware/service that controls signing.
+- Account: on-chain state object (EOA or contract account).
 
-A terminal wallet script (`diy_wallet.py`) with four commands:
+## Part 2: Wallet Types in Ethereum
 
-- `create`: create account + encrypted keystore
-- `balance`: check ETH balance
-- `estimate`: estimate transfer gas + fee
-- `send`: sign and send ETH transfer
+### 1. EOA Wallets
 
-Design target:
+EOA wallets control secp256k1 private keys directly.
 
-- No MetaMask
-- Self-hosted node preferred (public RPC allowed for learning)
-- No plaintext private key in code/config
+- The EOA signs type-0/1/2/3 transactions.
+- Nonce is consumed by each sent transaction.
+- Native behavior is simple and widely supported.
 
----
+Examples: MetaMask (EOA mode), Ledger with EOA account, Trezor with EOA account.
 
-## Prerequisites
+### 2. Smart Contract Wallets (Smart Accounts)
 
-### 1)  Node connection
+Smart contract wallets are contract accounts with programmable authorization and policy logic.
 
-This guide is designed for a local node workflow, but running a full node can require significant hardware, storage, and bandwidth.
+- Signature checks and spending rules are implemented in contract code.
+- Features can include multisig, session keys, spending limits, social recovery, and batched calls.
+- Execution semantics depend on wallet contract implementation.
 
-Choose one of these paths:
+Examples: Safe smart accounts and other contract wallet frameworks.
 
-1. **Full local node path** (recommended for long-term self-hosting)
-     - Run your own Geth JSON-RPC endpoint at `http://127.0.0.1:8545`.
-     - Typical options include Ethereum mainnet (fully synced), Sepolia/Holesky, or a local dev chain.
-     - Best for reliability, privacy, and learning full infrastructure ownership.
+### 3. Account Abstraction (ERC-4337 Model)
 
-2. **Quick testnet path** (recommended for first try)
-     - If you want to learn the wallet flow without managing node hardware first, use a Sepolia public RPC.
-     - Example:
+ERC-4337 is an application-layer account abstraction system (not native protocol replacement of EL tx format).
 
-```bash
-python diy_wallet.py balance \
-    --rpc-url https://ethereum-sepolia-rpc.publicnode.com \
-    --keystore ./keystore/my-wallet.json
-```
+Core objects and actors:
 
-You can use the same `--rpc-url` pattern for `estimate` and `send`.
+- UserOperation: wallet intent object (not an EL transaction by itself).
+- Bundler: service that collects UserOperations and submits an EL transaction.
+- EntryPoint: on-chain contract that validates and executes UserOperations.
+- Paymaster (optional): can sponsor gas under policy constraints.
 
-Quick health checks:
+Flow (simplified):
 
-Local node (`127.0.0.1:8545`):
+1. User signs a UserOperation.
+2. Bundler simulates and selects UserOperations.
+3. Bundler submits a transaction calling EntryPoint.
+4. EntryPoint verifies and executes wallet logic.
 
-```bash
-curl -s -X POST http://127.0.0.1:8545 \
-  -H "Content-Type: application/json" \
-  --data '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}'
-```
+## Part 3: Seed Phrases, HD Derivation, and Addressing
 
-Custom RPC (example: Sepolia public endpoint):
+### 1. Standards and Scope
 
-```bash
-curl -s -X POST https://ethereum-sepolia-rpc.publicnode.com \
-    -H "Content-Type: application/json" \
-    --data '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}'
-```
+- BIP-32: hierarchical deterministic key tree.
+- BIP-39: mnemonic-to-seed process.
+- BIP-44: multi-account derivation path structure.
 
-If this fails, the wallet script cannot work yet.
+Ethereum commonly uses:
 
-### 2) Python environment
+$$
+m / 44' / 60' / account' / change / index
+$$
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install web3
-```
+Where coin type 60 is Ethereum (SLIP-44 registry).
 
----
+### 2. Bitcoin Standards Often Confused with Ethereum
 
-## DIY wallet requirements (must-have)
+BIP-49 and BIP-84 describe Bitcoin SegWit address/script standards. They are not Ethereum address formats.
 
-A DIY wallet is flexible, but it is **not** free-form. If you want it to work safely on Ethereum, your implementation should follow these baseline requirements:
+### 3. Public Key and Address Relationship
 
-1. **Key/account correctness**
-   - Use Ethereum-compatible secp256k1 keypairs.
-   - Derive and validate addresses correctly (with checksum when used in UI/CLI).
-2. **Keystore standard**
-   - Store private keys in encrypted **Web3 Secret Storage V3** JSON format.
-   - Never hardcode or store raw private keys in source/config.
-3. **Transaction correctness**
-   - Build tx with correct `nonce`, `chainId`, `to`, `value`, and gas fields.
-   - Sign locally and broadcast raw signed bytes (`eth_sendRawTransaction`).
+For EOAs, the Ethereum address is derived from the public key hash truncation process. Practically:
 
-    Example (EIP-1559 transaction request):
+- Private key -> public key -> keccak256(public key without 0x04 prefix) -> last 20 bytes.
 
-```ts
-const txRequest = {
-     to: "0x742d35Cc6634C0532925a3b844Bc454e4438f44e", // Recipient address
-     value: ethers.parseEther("0.1"),                  // Amount to send (0.1 ETH)
-     nonce: nonce,
-     chainId: chainId,
-     gasLimit: 21000,                                  // Standard gas limit for ETH transfer
+One-way implication:
 
-     // EIP-1559 gas pricing (recommended over legacy gasPrice)
-     maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
-     maxFeePerGas: feeData.maxFeePerGas,
-};
-```
+- Public key can produce address.
+- Address alone cannot recover the public key for arbitrary accounts before a signature reveals needed data.
 
+## Part 4: Custody and Key-Control Models
 
+### 1. Self-Custody
 
-4. **RPC compatibility**
-   - Use standard JSON-RPC calls (`eth_getBalance`, `eth_estimateGas`, `eth_sendRawTransaction`, etc.).
-   - Handle node/network errors explicitly.
-5. **Security baseline**
-   - Prompt passwords securely (`getpass`).
-   - Keep key material in memory for shortest time possible and wipe after use.
-   - Restrict keystore file permissions (for example `0600` on Linux/macOS).
+User controls signing authority.
 
-In short: you can customize UX and code structure, but these core protocol + security functions are required.
----
+Typical implementations:
 
-## Security model (important)
+- Software wallet (desktop/mobile, optionally OS enclave-backed).
+- Hardware wallet.
+- Air-gapped signing device.
 
-- Keystore uses **Web3 Secret Storage Definition (V3)**.
-- Password is entered with `getpass` (not echoed).
-- Private key is kept in memory only for decrypt/sign operations.
-- Script wipes mutable key bytes after use.
-- File permissions are set to `0600`.
+### 2. Custodial Wallets
 
-What this script is **not**:
+Service provider controls keys/signing.
 
-- Not a hardware-wallet replacement.
-- Not malware-proof if host machine is compromised.
-- Not multi-sig or policy engine.
+Typical implementations:
 
-Use small amounts first and secure your backups.
+- Exchange custody accounts.
+- Managed wallet infrastructure providers.
 
----
+### 3. Institutional Patterns
 
-## Full script: `diy_wallet.py`
+- HSM-backed signing infrastructure.
+- MPC/threshold signing architectures.
+- Policy engines with role-based approval workflows.
 
-```python
-#!/usr/bin/env python3
-"""
-DIY Ethereum wallet CLI using local Geth RPC.
+Security note: custody model determines who can actually authorize movement of funds.
 
-Commands:
-- create: generate account and save encrypted V3 keystore
-- balance: read ETH balance
-- estimate: estimate gas + fee for ETH transfer
-- send: sign locally and broadcast tx
-"""
+## Part 5: MPC, Multisig, and Threshold Control
 
-from __future__ import annotations
+These are related but different:
 
-import argparse
-import getpass
-import json
-import os
-import sys
-from dataclasses import dataclass
-from decimal import Decimal, InvalidOperation
-from pathlib import Path
-from typing import Any
+- Multisig: on-chain policy requiring multiple signatures/approvals according to contract/script rules.
+- MPC/threshold signing: off-chain cryptographic protocol producing a valid signature without reconstructing a full private key in one place.
 
-from eth_account import Account
-from web3 import Web3
-from web3.exceptions import TimeExhausted, TransactionNotFound
+Clarification:
 
+- Multisig concept is broadly portable, but each chain implements it differently at protocol/contract level.
+- MPC is not automatically safer than multisig; security depends on implementation, key ceremonies, operational controls, and failure assumptions.
 
-DEFAULT_RPC_URL = "http://127.0.0.1:8545"
+## Part 6: Execution-Layer Fee and Transaction Context
 
+Wallets that submit EL transactions should be explicit about modern fee types:
 
-@dataclass
-class LoadedAccount:
-    address: str
-    key_material: bytearray
+- Type-2 (EIP-1559): base fee + priority fee with max fee caps.
+- Type-3 (EIP-4844): execution gas fee plus blob gas fee caps.
 
+For reliable UX, wallets should:
 
-def fail(message: str, code: int = 1) -> None:
-    print(f"Error: {message}", file=sys.stderr)
-    raise SystemExit(code)
+1. Distinguish includability constraints from final charged fee.
+2. Handle replacement/cancel behavior via nonce + fee bumping policy.
+3. Detect and explain failures (underpriced replacement, nonce too low, insufficient funds, execution revert).
 
+## Part 7: Practical Wallet Taxonomy
 
-def make_web3(rpc_url: str) -> Web3:
-    w3 = Web3(Web3.HTTPProvider(rpc_url, request_kwargs={"timeout": 30}))
-    if not w3.is_connected():
-        fail(f"Cannot connect to node at {rpc_url}")
-    return w3
+A compact classification useful for architecture decisions:
 
+1. Signer model:
+- Single-key EOA.
+- Contract wallet policy engine.
+- MPC/threshold signer set.
 
-def parse_eth_amount(amount: str) -> Decimal:
-    try:
-        dec = Decimal(amount)
-    except InvalidOperation as exc:
-        fail(f"Invalid ETH amount '{amount}': {exc}")
-    if dec <= 0:
-        fail("Amount must be greater than 0")
-    return dec
+2. Custody model:
+- Self-custody.
+- Custodial.
+- Hybrid/enterprise governance.
 
+3. Submission path:
+- Public EL mempool.
+- Private orderflow channels.
+- ERC-4337 bundler path.
 
-def parse_gwei_positive(value: str, field_name: str) -> Decimal:
-    try:
-        dec = Decimal(value)
-    except InvalidOperation as exc:
-        fail(f"Invalid {field_name} '{value}': {exc}")
-    if dec <= 0:
-        fail(f"{field_name} must be greater than 0")
-    return dec
-
-
-def parse_address(raw: str) -> str:
-    if not Web3.is_address(raw):
-        fail(f"Invalid Ethereum address: {raw}")
-    return Web3.to_checksum_address(raw)
+4. Security envelope:
+- Hot software key.
+- Hardware-backed key.
+- Distributed signing with operational controls.
 
+## Part 8: Common Mistakes to Avoid
 
-def write_json_secure(path: Path, data: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    serialized = json.dumps(data, indent=2)
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(serialized)
-    os.chmod(path, 0o600)
-
-
-def create_account(keystore_path: Path) -> None:
-    password_1 = getpass.getpass("Create keystore password: ")
-    password_2 = getpass.getpass("Confirm keystore password: ")
-    if password_1 != password_2:
-        fail("Passwords do not match")
-    if len(password_1) < 10:
-        fail("Use at least 10 characters for keystore password")
-
-    acct = Account.create()
-    encrypted = Account.encrypt(acct.key, password_1)
-    write_json_secure(keystore_path, encrypted)
-
-    print("Account created.")
-    print(f"Address: {acct.address}")
-    print(f"Keystore: {keystore_path}")
-    print("Back up keystore + password securely.")
-
-
-def load_account_from_keystore(keystore_path: Path) -> LoadedAccount:
-    if not keystore_path.exists():
-        fail(f"Keystore file not found: {keystore_path}")
-
-    with open(keystore_path, "r", encoding="utf-8") as f:
-        keystore = json.load(f)
-
-    addr = keystore.get("address")
-    if not addr:
-        fail("Invalid keystore: missing address")
-
-    password = getpass.getpass("Keystore password: ")
-    try:
-        key_bytes = Account.decrypt(keystore, password)
-    except (ValueError, KeyError, TypeError) as exc:
-        fail(f"Keystore decrypt failed (wrong password or corrupt file): {exc}")
-
-    return LoadedAccount(
-        address=Web3.to_checksum_address("0x" + addr),
-        key_material=bytearray(key_bytes),
-    )
-
-
-def wipe_key(account: LoadedAccount) -> None:
-    for i in range(len(account.key_material)):
-        account.key_material[i] = 0
-
-
-def get_balance(w3: Web3, address: str) -> None:
-    wei = w3.eth.get_balance(address)
-    print(f"Address: {address}")
-    print(f"Balance: {w3.from_wei(wei, 'ether')} ETH ({wei} wei)")
-
-
-def estimate_transfer_gas(w3: Web3, sender: str, to: str, amount_eth: Decimal) -> None:
-    value_wei = w3.to_wei(amount_eth, "ether")
-    tx = {"from": sender, "to": to, "value": value_wei}
-
-    gas_limit = w3.eth.estimate_gas(tx)
-    base_fee = w3.eth.get_block("latest").baseFeePerGas
-    if base_fee is None:
-        fail("Connected network does not expose baseFeePerGas (EIP-1559 required)")
-    priority_fee = w3.eth.max_priority_fee
-    suggested_max_fee = base_fee * 2 + priority_fee
-    fee_wei = gas_limit * suggested_max_fee
-
-    print(f"From: {sender}")
-    print(f"To: {to}")
-    print(f"Amount: {amount_eth} ETH ({value_wei} wei)")
-    print(f"Estimated gas limit: {gas_limit}")
-    print(f"Base fee: {base_fee} wei")
-    print(f"Priority fee: {priority_fee} wei")
-    print(f"Suggested max fee: {suggested_max_fee} wei")
-    print(f"Estimated max fee spend: {w3.from_wei(fee_wei, 'ether')} ETH ({fee_wei} wei)")
-
-
-def send_eth(
-    w3: Web3,
-    account: LoadedAccount,
-    to: str,
-    amount_eth: Decimal,
-    max_fee_gwei: Decimal | None,
-    max_priority_fee_gwei: Decimal | None,
-) -> None:
-    sender = account.address
-    value_wei = w3.to_wei(amount_eth, "ether")
-    nonce = w3.eth.get_transaction_count(sender, "pending")
-    chain_id = w3.eth.chain_id
-
-    gas_limit = w3.eth.estimate_gas({"from": sender, "to": to, "value": value_wei})
-
-    # EIP-1559 fee selection with optional user overrides.
-    base_fee = w3.eth.get_block("latest").baseFeePerGas
-    if base_fee is None:
-        fail("Connected network does not expose baseFeePerGas (EIP-1559 required)")
-
-    default_priority_fee = w3.eth.max_priority_fee
-    max_priority_fee = (
-        w3.to_wei(max_priority_fee_gwei, "gwei")
-        if max_priority_fee_gwei is not None
-        else default_priority_fee
-    )
-
-    max_fee = (
-        w3.to_wei(max_fee_gwei, "gwei")
-        if max_fee_gwei is not None
-        else base_fee * 2 + max_priority_fee
-    )
-
-    if max_fee < max_priority_fee:
-        fail("maxFeePerGas must be greater than or equal to maxPriorityFeePerGas")
-
-    tx = {
-        "type": 2,
-        "nonce": nonce,
-        "to": to,
-        "value": value_wei,
-        "gas": gas_limit,
-        "maxFeePerGas": max_fee,
-        "maxPriorityFeePerGas": max_priority_fee,
-        "chainId": chain_id,
-    }
-
-    try:
-        signed = w3.eth.account.sign_transaction(tx, private_key=bytes(account.key_material))
-        tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
-    except Exception as exc:
-        fail(f"Sign or broadcast failed: {exc}")
-    finally:
-        wipe_key(account)
-
-    print(f"Broadcasted tx hash: {tx_hash.hex()}")
-    print("Waiting for receipt...")
+1. Treating wallet app UI as equivalent to account semantics.
+2. Mixing Bitcoin derivation/address conventions into Ethereum explanations.
+3. Assuming ERC-4337 UserOperations are native EL transactions.
+4. Ignoring type-3 blob fee caps in post-Dencun fee logic.
+5. Assuming address alone proves key ownership without valid signature context.
 
-    try:
-        receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=180, poll_latency=2)
-    except (TimeExhausted, TransactionNotFound) as exc:
-        fail(f"Transaction receipt not found in time: {exc}")
+## Part 9: References
 
-    print(f"Block: {receipt.blockNumber}")
-    print(f"Status: {'success' if receipt.status == 1 else 'reverted'}")
-    print(f"Gas used: {receipt.gasUsed}")
+- [Ethereum Accounts](https://ethereum.org/developers/docs/accounts/)
+- [Ethereum Transactions](https://ethereum.org/developers/docs/transactions/)
+- [ERC-4337 Specification](https://eips.ethereum.org/EIPS/eip-4337)
+- [ERC-4337 Docs](https://docs.erc4337.io/)
+- [MetaMask Smart Accounts Overview](https://support.metamask.io/)
+- [Safe Smart Account Docs](https://docs.safe.global/)
+- [BIP-32](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki)
+- [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki)
+- [BIP-44](https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki)
 
+## Part 10: DIY Implementation Page
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="DIY Ethereum wallet CLI")
-    parser.add_argument("--rpc-url", default=DEFAULT_RPC_URL, help=f"RPC URL (default: {DEFAULT_RPC_URL})")
+If you want a hands-on implementation tutorial (Python + local signing + raw tx broadcast), see:
 
-    sub = parser.add_subparsers(dest="command", required=True)
-
-    p_create = sub.add_parser("create", help="Create account and keystore")
-    p_create.add_argument("--keystore", required=True, help="Keystore output path")
-
-    p_balance = sub.add_parser("balance", help="Check account ETH balance")
-    p_balance.add_argument("--keystore", required=True, help="Keystore file path")
-
-    p_estimate = sub.add_parser("estimate", help="Estimate gas for ETH transfer")
-    p_estimate.add_argument("--keystore", required=True, help="Sender keystore file path")
-    p_estimate.add_argument("--to", required=True, help="Recipient address")
-    p_estimate.add_argument("--amount-eth", required=True, help="Amount in ETH, e.g. 0.01")
-
-    p_send = sub.add_parser("send", help="Send ETH transfer")
-    p_send.add_argument("--keystore", required=True, help="Sender keystore file path")
-    p_send.add_argument("--to", required=True, help="Recipient address")
-    p_send.add_argument("--amount-eth", required=True, help="Amount in ETH, e.g. 0.01")
-    p_send.add_argument("--max-fee-gwei", help="Optional maxFeePerGas in gwei")
-    p_send.add_argument("--max-priority-fee-gwei", help="Optional maxPriorityFeePerGas in gwei")
-
-    return parser
-
-
-def main() -> None:
-    parser = build_parser()
-    args = parser.parse_args()
-
-    if args.command == "create":
-        create_account(Path(args.keystore))
-        return
-
-    w3 = make_web3(args.rpc_url)
-    loaded = load_account_from_keystore(Path(args.keystore))
-
-    if args.command == "balance":
-        try:
-            get_balance(w3, loaded.address)
-        finally:
-            wipe_key(loaded)
-        return
-
-    to_addr = parse_address(args.to)
-    amount_eth = parse_eth_amount(args.amount_eth)
-
-    if args.command == "estimate":
-        try:
-            estimate_transfer_gas(w3, loaded.address, to_addr, amount_eth)
-        finally:
-            wipe_key(loaded)
-        return
-
-    if args.command == "send":
-        max_fee = parse_gwei_positive(args.max_fee_gwei, "max fee") if args.max_fee_gwei else None
-        max_priority_fee = (
-            parse_gwei_positive(args.max_priority_fee_gwei, "max priority fee")
-            if args.max_priority_fee_gwei
-            else None
-        )
-        send_eth(w3, loaded, to_addr, amount_eth, max_fee, max_priority_fee)
-        return
-
-    fail(f"Unsupported command: {args.command}")
-
-
-if __name__ == "__main__":
-    main()
-```
-
----
-
-## What this wallet can do
-
-### 1) Create wallet
-
-```bash
-python diy_wallet.py create --keystore ./keystore/my-wallet.json
-```
-
-You will enter password twice. Output includes your new address.
-
-### 2) Fund address
-
-Send ETH to that address (from faucet/test wallet/another account) so it can pay gas.
-
-### 3) Check balance
-
-```bash
-python diy_wallet.py balance --keystore ./keystore/my-wallet.json
-```
-
-### 4) Estimate fee before sending
-
-```bash
-python diy_wallet.py estimate \
-  --keystore ./keystore/my-wallet.json \
-  --to 0xRecipientAddress \
-  --amount-eth 0.01
-```
-
-### 5) Send ETH
-
-```bash
-python diy_wallet.py send \
-  --keystore ./keystore/my-wallet.json \
-  --to 0xRecipientAddress \
-  --amount-eth 0.01
-```
-
-Optional EIP-1559 fee override:
-
-```bash
-python diy_wallet.py send \
-  --keystore ./keystore/my-wallet.json \
-  --to 0xRecipientAddress \
-  --amount-eth 0.01 \
-    --max-priority-fee-gwei 2 \
-    --max-fee-gwei 60
-```
-
----
-
-## Mainnet usage notes
-
-Yes, it works on Ethereum mainnet if your local Geth is synced to mainnet.
-
-- Keep default `--rpc-url` if node is at `127.0.0.1:8545`.
-- Ensure enough ETH for transfer value + gas.
-- Start with tiny transfers.
-- For production, add monitoring/retry strategy around broadcast and confirmation.
-
----
-
-## Common errors and fixes
-
-- **Cannot connect to node**  
-  Geth RPC is not running or wrong host/port.
-
-- **Keystore decrypt failed**  
-  Wrong password or corrupted JSON file.
-
-- **insufficient funds**  
-  Balance cannot cover `amount + gas`.
-
-- **replacement transaction underpriced**  
-    Same nonce already pending with higher fee; raise max fee / priority fee or wait.
-
-- **receipt timeout**  
-  Node not syncing or network congestion; inspect tx hash on explorer / local RPC.
-
----
-
-## Next improvements (if you continue building)
-
-- Add automatic fee bumping for replacement transactions
-- Add token transfers (ERC-20)
-- Add nonce management for concurrent sends
-- Add offline signing mode (air-gapped workflow)
+- [DIY Ethereum Wallet](/ethereum/eth-wallet-diy/)

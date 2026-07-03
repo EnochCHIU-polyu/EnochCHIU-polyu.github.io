@@ -3,9 +3,14 @@ title: Cryptography
 description: A guide to Ethereum cryptographic primitives, signatures, hashing, and proofs.
 ---
 
-## Part 0: Block detail can be see
+## Part 0: Visibility vs Transport Encryption
 
-Note that, all communications with the Ethereum platform and between nodes (including transaction data) are unencrypted and can (necessarily) be read by anyone.
+Important distinction:
+
+- On-chain data (transactions, receipts, state commitments) is publicly verifiable by design.
+- Peer-to-peer transport is authenticated and encrypted in modern client stacks (for example RLPx on EL and encrypted libp2p channels on CL).
+
+So Ethereum is public, but not every byte in transit is plaintext on the wire.
 
 ## Part 1: Public key cryptography (PKC)
 
@@ -33,7 +38,7 @@ This one-way property is what enables digital secrets (private keys) and unforge
 
 ### 1. Private keys
 
-- A private key is a random number in a valid elliptic-curve range.
+- A private key is a uniformly random integer in the valid `secp256k1` scalar range (`1 <= k < n`).
 - Control of the private key equals control of the corresponding EOA funds and permissions.
 - Private keys are never posted on-chain and must never be shared.
 
@@ -76,6 +81,7 @@ $$
 - EOAs sign transaction payloads with ECDSA.
 - Nodes verify signatures before accepting and executing transactions.
 - Signature validation proves authorization without revealing the private key.
+- Ethereum additionally enforces signature validity constraints (including canonical low-`s` behavior for transactions) to reduce malleability.
 
 ## Part 2: Detail for ECDSA
 
@@ -100,7 +106,7 @@ Before signing, ECDSA uses these values:
 - $G$: the generator point on `secp256k1`
 - $n$: the order of the curve
 - $m$: the message or transaction data
-- $z$: the hash of the message, produced by Keccak-256 in Ethereum
+- $z$: the Keccak-256 digest of the Ethereum signing payload
 
 ### 2. Signature generation
 
@@ -125,7 +131,7 @@ $$
 s = k^{-1}(z + rd) \bmod n
 $$
 
-The signature is the pair $(r, s)$, and Ethereum transactions also include a recovery value $v$.
+The signature is the pair $(r, s)$, and Ethereum transactions also include a recovery/parity field (historically `v`; in typed transactions, y-parity plus chain/domain fields in the signing payload).
 
 ### 3. Signature verification
 
@@ -158,6 +164,8 @@ $$
 $$
 x_X \equiv r \pmod n
 $$
+
+Clients also enforce range/canonical checks on signature components before accepting a transaction as valid.
 
 ### 4. Why it is secure
 
@@ -302,7 +310,7 @@ async function main() {
 		chainId: 11155111,
 	};
 
-	// Calculate RLP-encoded unsigned transaction hash
+	// Compute the signing digest of the unsigned typed transaction payload
 	const unsignedTx = ethers.Transaction.from(txData).unsignedSerialized;
 	console.log("RLP-Encoded Tx (Unsigned):", unsignedTx);
 	const txHash = ethers.keccak256(unsignedTx);
@@ -368,7 +376,7 @@ Ethereum depends heavily on one-way hash behavior:
 
 ### 3. Address derivation
 
-- EOA address = last 20 bytes of `keccak256(publicKey)`.
+- EOA address = last 20 bytes of `keccak256(uncompressedPublicKey[1:])` (i.e., without the `0x04` prefix byte).
 - Displayed in hex form with `0x` prefix.
 - Checksum-style mixed-case encoding (ERC-55) helps detect typing mistakes.
 
@@ -376,9 +384,9 @@ Ethereum depends heavily on one-way hash behavior:
 
 Ethereum commits global data using authenticated structures:
 
-- `stateRoot`: commitment to global account and storage state.
+- `stateRoot`: commitment to global account/storage state (Merkle-Patricia trie root).
 - `transactionsRoot`: commitment to included transactions.
-- `receiptsRoot`: commitment to outcomes and logs.
+- `receiptsRoot`: commitment to execution outcomes and logs.
 
 These roots allow compact verification of large datasets.
 
@@ -390,7 +398,7 @@ PoS consensus requires authenticated validator messages.
 - Misbehavior (for example, conflicting signatures) becomes provable.
 - Provable misbehavior enables slashing.
 
-Ethereum uses BLS signatures for validator messaging because they support aggregation:
+Ethereum consensus uses BLS signatures (BLS12-381) for validator messaging because they support aggregation:
 
 - Many signatures can be compressed into one aggregate signature.
 - Verification cost and block footprint are reduced versus verifying each vote independently.
@@ -402,9 +410,9 @@ With proto-danksharding (EIP-4844), Ethereum introduced blob-related commitment 
 
 Conceptually:
 
-- Data is represented in polynomial form.
-- A commitment is published on-chain.
-- Small proofs allow validators and nodes to verify specific claims about that committed data.
+- Blob data is represented as polynomial evaluations over a finite field.
+- A KZG commitment to blob data is included in block-related data structures.
+- Small proofs allow validators and nodes to verify point-evaluation claims without downloading all blob data from every peer.
 
 KZG commitment schemes provide:
 

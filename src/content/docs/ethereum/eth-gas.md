@@ -9,7 +9,7 @@ Gas is Ethereum's metering system. It prevents infinite computation and helps pr
 ## Part 0: Reference Gas Price Quote
 
 ```bash
-//cast should be installed
+# cast should be installed
 $ cast gas-price --rpc-url https://ethereum-sepolia-rpc.publicnode.com
 4845187414
 ```
@@ -28,8 +28,10 @@ Note:
 | baseFee              | Network-set base gas price per block             | Burned under EIP-1559 and adjusts with demand        |
 | maxPriorityFeePerGas | Sender-set maximum tip per gas for proposer      | Incentivizes faster inclusion                        |
 | maxFeePerGas         | Sender-set maximum total fee per gas             | Caps worst-case effective gas price                  |
+| maxFeePerBlobGas     | Sender-set max blob fee per blob gas (type-3)    | Caps blob-fee exposure for EIP-4844 transactions     |
+| blobBaseFee          | Protocol-set blob base fee (type-3 market)       | Burned for blob data under EIP-4844                  |
 
-For EIP-1559 transactions, total fee paid is:
+For type-2 (EIP-1559) transactions, total execution fee paid is:
 
 $$
 TotalFeePaid = gasUsed \times effectiveGasPrice
@@ -53,6 +55,19 @@ effectivePriorityFee = \max\left(0,\ \min\left(maxPriorityFeePerGas,\ maxFeePerG
 $$
 
 - If `baseFee > maxFeePerGas`, the transaction is not includable in that block.
+
+For type-3 (EIP-4844) transactions, total fee has two components:
+
+$$
+TotalFeePaid = gasUsed \times effectiveGasPrice + blobGasUsed \times blobBaseFee
+$$
+
+With includability constraints:
+
+- `baseFee <= maxFeePerGas`
+- `blobBaseFee <= maxFeePerBlobGas`
+
+Note: receipt `effectiveGasPrice` refers to execution gas pricing, not blob-fee pricing.
 
 ## Example
 
@@ -166,16 +181,34 @@ $$
 value + gasLimit \times maxFeePerGas
 $$
 
-- The final charged transaction fee is:
+- For type-3 transactions, affordability also includes blob-fee allowance:
+
+$$
+value + gasLimit \times maxFeePerGas + blobGasUsed \times maxFeePerBlobGas
+$$
+
+- For type-2 transactions, the final charged transaction fee is:
 
 $$
 actualFeePaid = gasUsed \times effectiveGasPrice
+$$
+
+- For type-3 transactions, total charged fee includes execution gas plus blob gas:
+
+$$
+actualFeePaid = gasUsed \times effectiveGasPrice + blobGasUsed \times blobBaseFee
 $$
 
 - Conceptually, unused allowance can be viewed as:
 
 $$
 unusedAllowance = gasLimit \times maxFeePerGas - gasUsed \times effectiveGasPrice
+$$
+
+- Type-3 transactions also have blob-fee headroom:
+
+$$
+blobAllowanceRemainder = blobGasUsed \times (maxFeePerBlobGas - blobBaseFee)
 $$
 
 Refund behavior:
@@ -223,6 +256,7 @@ You can use the interactive calculator below to explore how different limits and
 
 - Validator/proposer receives priority-fee portion on used gas.
 - Under EIP-1559, validator payout excludes base fee.
+- Under EIP-4844, blob base fee is also burned (not paid to validator).
 
 ### 3. Base fee burn
 
@@ -240,6 +274,10 @@ sender_balance -= total_deduction # fee charged
 
 total_supply -= burn_amount      # permanently burned
 validator_balance += validator_tip
+
+# EIP-4844 extension (type-3)
+blob_burn_amount = blob_gas_used * blob_base_fee_per_gas
+total_supply -= blob_burn_amount
 ```
 
 ## Part 4: ETH Supply and Burn Dynamics (EIP-1559)

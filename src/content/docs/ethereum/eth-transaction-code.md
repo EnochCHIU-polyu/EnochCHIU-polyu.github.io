@@ -26,7 +26,7 @@ Geth is an Execution Layer client. Its role is to execute transactions and maint
 
 Primary responsibilities:
 - Accept local RPC transactions and remote p2p transactions.
-- Maintain the transaction pool and classify transactions as rejected, queued, or pending.
+- Maintain the transaction pool and classify transactions into non-executable/executable sets (exact naming is client-specific, commonly queued/future vs pending).
 - Run the EVM for transaction and smart-contract execution.
 - Update account balances, nonces, contract storage, code, logs, and receipts.
 - Maintain execution state and database data structures, including state trie data.
@@ -116,6 +116,7 @@ The important distinction is that txpool acceptance is not final chain acceptanc
 For signed-by-node submission:
 - Entry is `TransactionAPI.SendTransaction` in `internal/ethapi/api.go:1674`.
 - It fills defaults (`nonce`, `gas`, fee fields, chain ID), builds a typed transaction, signs it via wallet, and submits it.
+- Operational note: many public RPC providers disable `eth_sendTransaction` because they do not manage user private keys server-side.
 
 For pre-signed raw submission:
 - Entry is `TransactionAPI.SendRawTransaction` in `internal/ethapi/api.go:1738`.
@@ -184,8 +185,8 @@ Important note on size limits:
 
 Txpool outcomes:
 1. Rejected.
-2. Queued (non-executable yet, typically nonce-gapped).
-3. Pending (currently executable).
+2. Non-executable/future (typically nonce-gapped).
+3. Executable/pending.
 
 Code snippet:
 
@@ -272,7 +273,8 @@ Goal:
 How it works:
 - Primary production path on mainnet is PBS/MEV-Boost: external builders construct candidate payloads.
 - Local EL payload construction still exists as fallback and uses the same execution rules.
-- In both cases, candidate payload contents are ultimately sourced from executable pending transaction sets (with fee/blob constraints and ordering logic).
+- If an external builder path wins, payload transactions can include private orderflow not present in the local public mempool.
+- Local fallback payloads are sourced from local executable pending sets under fee/blob constraints and ordering logic.
 
 Relevant Engine API build/retrieval surface in geth:
 - `GetPayloadV1..V6` (`eth/catalyst/api.go:437` onward).
@@ -286,7 +288,7 @@ Goal:
 How it works:
 - CL receives/proposes a beacon block and extracts execution payload fields.
 - CL calls `engine_newPayload*` against EL.
-- EL evaluates payload executability and returns status (`VALID`/`INVALID`/`SYNCING`, plus implementation-specific accepted states).
+- EL evaluates payload executability and returns status (for example `VALID`/`INVALID`/`SYNCING`/`ACCEPTED`, depending on Engine API version and state).
 
 Relevant Engine API endpoint family:
 - `NewPayloadV1..V5` (`eth/catalyst/api.go:720` onward).
@@ -343,6 +345,7 @@ Goal:
 
 How it works:
 - Import path executes payload through processor and then validates resulting state/receipt commitments.
+- Validation includes execution-result consistency against header commitments (for example state/receipt/transaction roots and other fork-relevant payload commitments).
 - Import execution path references:
   - Processor call around `core/blockchain.go:2228`.
   - Validator state check around `core/blockchain.go:2238`.
@@ -384,7 +387,7 @@ Post-Merge note:
 
 ---
 
-## 6. Fork and Reorg Management
+## 5. Fork and Reorg Management
 
 Nodes may observe competing branches and can reorganize if fork-choice prefers another chain.
 
@@ -425,7 +428,7 @@ func (p *TxPool) loop(head *types.Header) {
 }
 ```
 
-## 7. Summary
+## 6. Summary
 
 A transaction must pass multiple gates before final acceptance on canonical chain state:
 1. RPC/policy checks.
@@ -438,14 +441,14 @@ Because of these layered gates, a transaction can be accepted by RPC but still r
 
 End-to-end data shape summary:
 - RPC/raw input becomes a `types.Transaction`.
-- Pool admission classifies it as rejected, queued, or pending.
+- Pool admission classifies it as rejected, non-executable/future, or executable/pending.
 - Payload construction consumes pending transactions and orders them into block transaction lists.
 - State processing converts each transaction into an EVM `Message`, mutates state, and creates receipts/logs.
 - Block import validates the resulting roots before the block is accepted.
 
 For the fee path specifically, see [Ethereum Gas](/ethereum/eth-gas/).
 
-### 7.1 L2 & Rollup Context
+### 6.1 L2 & Rollup Context
 
 When a Geth-derivative acts as an L2 sequencer (for example, op-geth in an OP Stack deployment), the ingress and ordering path is different from the L1 public-mempool model described above.
 
@@ -456,7 +459,7 @@ Key differences:
 
 Execution and receipt formation still follow an EVM state transition model, but final settlement/finality is coupled to the rollup protocol and its L1 publication/challenge rules.
 
-### 7.2 Transaction Finality & Client Tracking
+### 6.2 Transaction Finality & Client Tracking
 
 External clients usually track pipeline success in two phases:
 1. Inclusion confirmation: poll `eth_getTransactionReceipt` until a receipt appears (with `status`, `blockHash`, `blockNumber`, gas usage, and logs).
