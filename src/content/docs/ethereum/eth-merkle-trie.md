@@ -29,6 +29,8 @@ Core property:
 
 In Bitcoin, Merkle trees are mainly used to commit block transactions via a transaction Merkle root.
 
+Basics structure:
+
 ```
           Root
          /    \
@@ -36,7 +38,10 @@ In Bitcoin, Merkle trees are mainly used to commit block transactions via a tran
       / \      / \
     H1  H2   H3  H4
 
+```
+
 Result:
+```
 Data2 
 ↓
 H2 change
