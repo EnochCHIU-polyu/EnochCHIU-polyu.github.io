@@ -92,6 +92,71 @@ Where `U` is the block transition function and `B_t` is the ordered payload cont
 
 In modern Ethereum, block processing includes both transactions and protocol-level payload fields (for example withdrawals), so the post-state is not a function of transactions alone.
 
+### Who Sends What to Whom
+
+1. **User/Wallet**
+- Creates and signs a transaction.
+- Sends signed transaction bytes to an RPC node using `eth_sendRawTransaction`.
+- May instead send private orderflow to a searcher/builder endpoint (not protocol-required).
+
+2. **Node (RPC + txpool, EL client)**
+- RPC accepts transaction submission.
+- EL validates transaction and, if valid, stores it in txpool.
+- Gossips transaction to other EL peers (public mempool path).
+
+3. **Searcher (out-of-protocol)**
+- Builds bundle/orderflow strategies.
+- Sends bundles or private flow to builders/relays.
+- Does not propose blocks in Ethereum consensus.
+
+4. **Builder (out-of-protocol)**
+- Builds candidate execution payloads from public mempool and/or private flow.
+- Sends bids/payload commitments to relays.
+
+5. **Relay (out-of-protocol)**
+- Receives builder bids.
+- Verifies bid/payload checks per relay policy.
+- Forwards bid data to a proposer using MEV-Boost.
+
+6. **Proposer (validator, in-protocol)**
+- Is selected by CL for the slot.
+- Proposes the beacon block.
+- Uses either a local EL-built payload (no MEV-Boost) or a builder-provided payload (MEV-Boost path).
+
+7. **CL vs EL responsibilities (in-protocol)**
+- CL: proposer selection, fork choice, attestations, finality, beacon block propagation.
+- EL: transaction validation, txpool, EVM execution, state transition, payload validity via Engine API.
+
+### Canonical Flow A: Public Mempool Path (Baseline)
+
+1. User signs tx in wallet.
+2. Wallet sends signed tx to RPC node via `eth_sendRawTransaction`.
+3. EL validates tx and admits it to local txpool if accepted.
+4. EL gossips tx across EL P2P; peers repeat validation/admission.
+5. At slot time, CL-selected proposer requests an execution payload from its EL.
+6. Proposer's EL builds payload from available txpool transactions.
+7. Proposer publishes beacon block (with execution payload) on CL network.
+8. Other nodes validate with CL consensus checks + EL re-execution checks.
+   
+![alt text](../../../assets/tx_step1_baseline.png)
+
+![alt text](../../../assets/tx_step2_baseline.png)
+
+![alt text](../../../assets/tx_step3_baseline.png)
+
+### Canonical Flow B: Private Orderflow / Searcher-Builder Path (MEV-Boost)
+
+1. User/searcher sends private orderflow or bundles to builder channels.
+2. Builders construct candidate payloads and attach bids.
+3. Builders submit bids to relays.
+4. Relays expose blinded bids to the slot proposer running MEV-Boost.
+5. Proposer selects a valid bid and signs the blinded path.
+6. Relay releases the full payload for the winning bid.
+7. Proposer publishes the beacon block through CL.
+8. Network validation remains in-protocol (CL + EL checks).
+
+Important: builder/relay/MEV-Boost are out-of-protocol market infrastructure; Ethereum consensus/finality rules remain in CL + EL protocol clients.
+
 #### Transaction Creation and Propagation
 
 - Creation: EOAs (or account-abstraction style user flows that still resolve to valid EL transaction envelopes) create a transaction with nonce, fee settings, recipient, value, and optional calldata, then sign it cryptographically.
@@ -196,6 +261,19 @@ In post-Merge Ethereum, block construction is commonly separated from block prop
 4. The proposer selects a winning header/bid and signs the proposal path.
 5. The full payload corresponding to the winning bid is released for proposal and execution.
 6. The Consensus Layer proposes/gossips the block, and the local Execution Layer validates and executes the payload via Engine API.
+
+#### Common Misconceptions (Quick Corrections)
+
+- "Users send transactions directly to proposers."
+  - Usually false: users send to RPC nodes or private orderflow endpoints.
+- "Builder and proposer are the same protocol role."
+  - No: proposer is in-protocol; builder is out-of-protocol infrastructure.
+- "Relays are part of Ethereum consensus protocol."
+  - No: relays are optional third-party infrastructure for MEV-Boost.
+- "CL validates transactions."
+  - EL validates/executes transactions; CL handles fork choice and finality.
+- "RPC acceptance guarantees inclusion."
+  - No: inclusion still depends on fee competitiveness, nonce ordering, and block space.
 
 
 #### Block Building Step
