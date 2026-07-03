@@ -72,7 +72,7 @@ Execution and consensus clients run in parallel, but they must coordinate locall
 Core Engine API flow is centered on fork-choice and payload validity:
 
 - CL sends fork-choice updates and payload attributes to EL.
-- EL builds or validates payloads and returns payload status / payload bodies.
+- EL validates submitted payloads and returns payload status, and for build flows returns locally built execution payload data through `getPayload` methods.
 - CL uses EL validity results to continue fork-choice and finalization progression.
 
 This division keeps responsibilities clear:

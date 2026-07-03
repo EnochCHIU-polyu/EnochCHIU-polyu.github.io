@@ -32,6 +32,7 @@ export default defineConfig({
 						{ label: 'Overview', link: '/ethereum/eth/' },
 						{ label: 'Nodes', link: '/ethereum/eth-node/' },
 						{ label: 'P2P Network', link: '/ethereum/eth-p2p/' },
+						{ label: 'Merkle and Trie Concepts', link: '/ethereum/eth-merkle-trie/' },
 						{ label: 'Accounts (20 Bytes)', link: '/ethereum/eth-account/' },
 						{ label: 'Cryptography', link: '/ethereum/eth-cryptography/' },
 						{ label: 'Transaction Processing', link: '/ethereum/eth-transaction/' },

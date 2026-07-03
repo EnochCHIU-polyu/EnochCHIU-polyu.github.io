@@ -81,12 +81,13 @@ Ethereum's EVM is considered Turing-complete in the theoretical sense because it
 | 1    | Node roles, client architecture, and deployment basics         | [eth-node](/ethereum/eth-node/)                         |
 | 2    | Peer discovery, gossip, and propagation in the network         | [eth-p2p](/ethereum/eth-p2p/)                           |
 | 3    | Cryptographic primitives, signatures, and verification model   | [eth-cryptography](/ethereum/eth-cryptography/)         |
-| 4    | User identity and account model (EOA/contract)                 | [eth-account](/ethereum/eth-account/)                   |
-| 5    | Wallet models, custody, and account abstraction mental model   | [eth-wallet](/ethereum/eth-wallet/)                     |
-| 6    | Hands-on EOA keystore and local-signing workflow (Python)      | [eth-wallet-diy](/ethereum/eth-wallet-diy/)             |
-| 7    | Transaction fields (`nonce`, `to`, `value`, `data`, signature) | [eth-transaction](/ethereum/eth-transaction/)           |
-| 8    | Fee setup (`gasLimit`, `maxFeePerGas`, `maxPriorityFeePerGas`) | [eth-gas](/ethereum/eth-gas/)                           |
-| 9    | CL proposer/attester roles, fork-choice, and finality checkpoints | [eth-pos](/ethereum/eth-pos/)                        |
-| 10   | EL runtime execution path and block import re-validation       | [eth-transaction-code](/ethereum/eth-transaction-code/) |
+| 4    | Merkle trees, MPT roots, and Verkle roadmap concepts           | [eth-merkle-trie](/ethereum/eth-merkle-trie/)           |
+| 5    | User identity and account model (EOA/contract)                 | [eth-account](/ethereum/eth-account/)                   |
+| 6    | Wallet models, custody, and account abstraction mental model   | [eth-wallet](/ethereum/eth-wallet/)                     |
+| 7    | Hands-on EOA keystore and local-signing workflow (Python)      | [eth-wallet-diy](/ethereum/eth-wallet-diy/)             |
+| 8    | Transaction fields (`nonce`, `to`, `value`, `data`, signature) | [eth-transaction](/ethereum/eth-transaction/)           |
+| 9    | Fee setup (`gasLimit`, `maxFeePerGas`, `maxPriorityFeePerGas`) | [eth-gas](/ethereum/eth-gas/)                           |
+| 10   | CL proposer/attester roles, fork-choice, and finality checkpoints | [eth-pos](/ethereum/eth-pos/)                        |
+| 11   | EL runtime execution path and block import re-validation       | [eth-transaction-code](/ethereum/eth-transaction-code/) |
 
 

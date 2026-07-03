@@ -6,11 +6,11 @@ description: A guide to Ethereum block structure, transaction fields, and lifecy
 
 | Type Identifier | Name                  | Pros                                                  |
 | --------------- | --------------------- | ----------------------------------------------------- |
-| `0x00`          | Legacy transactions   | Simple and widely supported by old tooling.           |
+| Legacy (pre-2718) | Untyped RLP transactions | Often shown as `type: 0x0` in RPC responses.       |
 | `0x01`          | EIP-2930 transactions | Access lists can reduce first-touch gas uncertainty.  |
 | `0x02`          | EIP-1559 transactions | Predictable fees with base fee plus adjustable tip.   |
 | `0x03`          | EIP-4844 transactions | Much cheaper blob data for rollup data availability.  |
-| `0x04`          | EIP-7702 transactions | Temporarily adds smart-account-like behavior to EOAs. |
+| `0x04`          | EIP-7702 transactions | Adds delegation-based execution capability to EOAs under EIP-7702 rules. |
 
 
 
@@ -41,6 +41,8 @@ description: A guide to Ethereum block structure, transaction fields, and lifecy
 [Trie explanation](https://medium.com/@ricore77.eth/understanding-ethereum-structures-world-state-trie-transaction-trie-receipts-and-account-d96ab74bb2ac)
 
 Trie (specifically the Modified Merkle Patricia Trie) is the structure used to commit three roots in the header (`stateRoot`, `transactionsRoot`, `receiptsRoot`).
+
+For a focused explainer on Merkle trees, MPT, and Verkle-tree roadmap context, see [Merkle and Trie Concepts](/ethereum/eth-merkle-trie/).
 
 ## Part 2: Core Transaction Body ([Developers Docs](https://ethereum.org/developers/docs/transactions/))
 
@@ -132,8 +134,8 @@ Your app or wallet (private key is managed here) -> [Local signing] -> Node (rec
 
 Before entering the pool, the transaction undergoes multiple layers of checks:
 
-* **RPC Layer:** Checks policies like fee caps and replay protection.
-* **Txpool Stateless Validation:** Checks if the signature and sender are correct, if there is sufficient gas, if the transaction type matches current fork rules, and if structures like blobs or set-code are valid.
+* **RPC Layer:** Applies node/provider policy checks (for example configured fee caps), while protocol-validity checks (signature, chain-domain/replay protection, type/fork validity) are enforced in tx decoding/validation paths.
+* **Txpool Stateless Validation:** Checks if the signature and sender are correct, if there is sufficient gas, if the transaction type matches current fork rules, and if structures like blobs or set-code authorizations are valid.
 * **Txpool Stateful Validation:** Verifies if the nonce is too high or too low, if the account balance is sufficient, and if it complies with the pool's gap and slot rules.
 
 ### 3. Entering a Node's Txpool
@@ -268,7 +270,8 @@ After execution, the results are recorded:
 After the proposer signs the block, the **Consensus Layer (CL)** client is responsible for propagating it over the Beacon Chain p2p network:
 
 * The CL client (for example, Prysm or Lighthouse) broadcasts the beacon block (which carries execution payload data/commitments for that fork version) to peers.
-* The **Execution Layer (EL)** client (for example, Geth) does not broadcast blocks to the network; it receives the payload locally from the CL through the **Engine API**.
+* For proposer publication, the local **CL** gossips beacon blocks, while the local **EL** receives the selected execution payload via the **Engine API**.
+* EL clients still participate in EL P2P request-response and sync data exchange for execution data.
 * This is the end of proposer-side publishing for the slot; network-wide voting and head movement happen after peers receive the block.
 * Other peers then run their own CL- and EL-side validation independently.
 

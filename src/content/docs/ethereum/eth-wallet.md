@@ -24,7 +24,7 @@ Important distinction:
 
 EOA wallets control secp256k1 private keys directly.
 
-- The EOA signs type-0/1/2/3 transactions.
+- EOAs sign execution-layer transaction envelopes supported by the active fork and client tooling (commonly type-0/1/2/3, and type-0x04 where EIP-7702 is active).
 - Nonce is consumed by each sent transaction.
 - Native behavior is simple and widely supported.
 
