@@ -29,21 +29,57 @@ Core property:
 
 In Bitcoin, Merkle trees are mainly used to commit block transactions via a transaction Merkle root.
 
+```
+          Root
+         /    \
+      H12      H34
+      / \      / \
+    H1  H2   H3  H4
+
+Result:
+Data2 
+↓
+H2 change
+↓
+H12 change
+↓
+Root change
+
+```
+
+
 ## Part 3: Ethereum's Merkle Patricia Trie (MPT)
 
-Ethereum uses a Modified Merkle Patricia Trie (often called MPT) instead of a simple binary Merkle tree for state-like key-value data.
+Ethereum uses a Modified Merkle Patricia Trie (MPT) for authenticated key-value data, instead of a simple binary Merkle tree.
 
-Why trie + Merkle:
+What it stores at a high level:
 
-1. Trie structure supports key-value lookups and updates.
-2. Merkle hashing provides tamper-evident root commitments.
-3. Path compression improves storage efficiency over naive trie forms.
+- State trie: maps each account address to account data (nonce, balance, code hash, storage root).
+- Storage trie (one per contract account): maps storage slot keys to storage values.
+- Transactions trie (per block): maps transaction index to transaction data.
+- Receipts trie (per block): maps transaction index to receipt data.
 
-At a high level, Ethereum uses tries for:
+Why this structure is authenticated:
 
-- Global state trie (`stateRoot`)
-- Per-block transaction trie (`transactionsRoot`)
-- Per-block receipts trie (`receiptsRoot`)
+1. Trie paths make key-based lookup and update deterministic.
+2. Every node is encoded and hashed.
+3. The top hash (root) is committed in the block header.
+4. Any change to a covered key/value changes hashes up the path and therefore changes the root.
+
+Minimal node/path concepts (enough to reason about proofs):
+
+- Branch node: up to 16 child pointers (one for each hex nibble) plus an optional value.
+- Extension node: compresses a shared path segment when there is no branch decision yet.
+- Leaf node: ends a path and stores the final value.
+- Nibble path: keys are traversed as hex half-bytes (`0` to `f`), one nibble per step.
+
+This "Patricia" path compression is why extension/leaf nodes exist: long single-child chains are compacted.
+
+At a high level, Ethereum commits these tries in execution-layer block headers via:
+
+- `stateRoot`
+- `transactionsRoot`
+- `receiptsRoot`
   
 ![merkle-patricia-trie-tree](../../../assets/merkle-patricia-trie-tree.png)
 
@@ -53,28 +89,48 @@ Source: [ELI5 How does a Merkle-Patricia-trie tree work](https://ethereum.stacke
 
 ### 1. State Root (`stateRoot`)
 
-Commits the full post-block world state (accounts and contract storage commitments).
+Commits the full post-block world state through the global state trie.
+
+Practical meaning: if two nodes execute the same block correctly, they should derive the same `stateRoot`.
 
 ### 2. Transactions Root (`transactionsRoot`)
 
-Commits the ordered list of transactions included in the block body.
+Commits the block's ordered transactions through the per-block transactions trie.
+
+Practical meaning: transaction inclusion and order are both covered by the commitment.
 
 ### 3. Receipts Root (`receiptsRoot`)
 
-Commits transaction receipts (status, cumulative gas used, logs bloom, logs, and other receipt fields).
+Commits receipts through the per-block receipts trie (status, cumulative gas used, logs bloom, logs, and related fields).
 
-Execution-layer verification checks that locally computed roots match header claims.
+Practical meaning: execution outcomes and emitted logs are committed, not just raw transactions.
+
+Execution-layer validation checks that roots recomputed from block data and state transitions match the roots claimed in the block header.
 
 ## Part 5: Proofs and Verification Intuition
 
-A Merkle-Patricia proof provides path evidence from a queried key/value to a committed root.
+A Merkle-Patricia proof is a set of trie nodes that lets a verifier check a claim against a trusted header root.
 
-Verification idea:
+Typical claim examples:
 
-1. Recompute node hashes along the proof path.
-2. Check the recomputed root equals the trusted root from block header.
+- "This account had this value under `stateRoot`."
+- "This storage slot had this value under `stateRoot`."
+- "This transaction or receipt is included under this block root."
 
-If roots match, the proof is valid under that header commitment.
+Verification intuition:
+
+1. Start from the query key (address, storage slot key, or tx index key).
+2. Walk the nibble path using the provided nodes (branch/extension/leaf transitions).
+3. Re-encode and hash each visited node.
+4. Confirm child references and path segments are consistent.
+5. Confirm the final reconstructed top hash equals the trusted root from the block header.
+6. Confirm the terminal value matches the claimed value (or confirms non-inclusion, when applicable).
+
+Why this works:
+
+- The verifier does not need the full database.
+- Any tampering with node content, path, or value changes hashes and breaks the root match.
+- Trust is anchored in the block header root, not in the proof provider.
 
 ## Part 6: Performance and Design Tradeoffs
 
@@ -107,10 +163,12 @@ Important status note:
 
 ## Part 8: Practical Reading Path
 
-1. Learn Merkle-tree hashing and inclusion proofs first.
-2. Understand why Ethereum uses trie-based authenticated maps, not only binary trees.
-3. Map each EL header root to its trie and verification boundary.
-4. Then study Verkle-tree motivation as a proof-size and statelessness upgrade path.
+1. Start with Merkle tree basics: hash chaining and root commitments.
+2. Learn MPT as an authenticated map: key lookup plus tamper-evident root.
+3. Understand the three MPT node roles: branch, extension, leaf.
+4. Understand nibble-path traversal and why path compression exists.
+5. Connect each execution-layer header root to its corresponding trie and proof type.
+6. Then study Verkle trees as a roadmap direction for smaller proofs and better stateless-client ergonomics.
 
 ## Part 9: References
 
