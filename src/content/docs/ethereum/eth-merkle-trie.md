@@ -44,7 +44,11 @@ At a high level, Ethereum uses tries for:
 - Global state trie (`stateRoot`)
 - Per-block transaction trie (`transactionsRoot`)
 - Per-block receipts trie (`receiptsRoot`)
+  
+![merkle-patricia-trie-tree](../../../assets/merkle-patricia-trie-tree.png)
 
+Source: [ELI5 How does a Merkle-Patricia-trie tree work](https://ethereum.stackexchange.com/questions/6415/eli5-how-does-a-merkle-patricia-trie-tree-work)
+	
 ## Part 4: The Three Header Roots in EL Context
 
 ### 1. State Root (`stateRoot`)
@@ -121,6 +125,7 @@ Important status note:
 
 - [Merkle Patricia Trie | ethereum.org](https://ethereum.org/developers/docs/data-structures-and-encoding/patricia-merkle-trie/)
 - [What are Patricia Merkle Tries? | Alchemy Docs](https://www.alchemy.com/docs/patricia-merkle-tries)
+- [ELI5: How does a Merkle Patricia Trie tree work? | Ethereum Stack Exchange](https://ethereum.stackexchange.com/questions/6415/eli5-how-does-a-merkle-patricia-trie-tree-work)
 - [Ethereum Merkle Patricia Tree overview (Zhihu)](https://zhuanlan.zhihu.com/p/46702178)
 
 ### Verkle Trees
