@@ -6,16 +6,19 @@ description: A guide to gas metering, fee calculation, and base fee adjustment.
 Gas is Ethereum's metering system. It prevents infinite computation and helps protect the network from denial-of-service behavior.
 
 
-## Part 0: "Correct" Gas Price
+## Part 0: Reference Gas Price Quote
 
 ```bash
 //cast should be installed
 $ cast gas-price --rpc-url https://ethereum-sepolia-rpc.publicnode.com
 4845187414
 ```
-## Part 1: Ideal Fee Formula by gasUsed 
+## Part 1: Fee Formula (Execution-Layer Accurate)
 
-Note: Real tx should use gasLimit as input!
+Note:
+
+- Affordability check uses `gasLimit * maxFeePerGas`.
+- Final fee charged uses `gasUsed * effectiveGasPrice`.
 
 | Gas System Field     | What It Represents                               | Role in the Fee System                               |
 | -------------------- | ------------------------------------------------ | ---------------------------------------------------- |
@@ -29,7 +32,7 @@ Note: Real tx should use gasLimit as input!
 For EIP-1559 transactions, total fee paid is:
 
 $$
-TotalFeePaid = gasUsed \times (baseFee + effectivePriorityFee)
+TotalFeePaid = gasUsed \times effectiveGasPrice
 $$
 
 Practical cap rule:
@@ -42,9 +45,16 @@ Where:
 
 - `baseFee` is protocol-set and burned. 
 - `effectivePriorityFee` is the validator tip actually paid.
-- **If the (baseFee + maxPriorityFeePerGas) is larger then the maxFeePerGas, **only maxPriorityFeePerGas would be reduce**.**
+- If `baseFee + maxPriorityFeePerGas > maxFeePerGas`, the effective priority fee is reduced.
+- Equivalently:
 
-# Example
+$$
+effectivePriorityFee = \max\left(0,\ \min\left(maxPriorityFeePerGas,\ maxFeePerGas - baseFee\right)\right)
+$$
+
+- If `baseFee > maxFeePerGas`, the transaction is not includable in that block.
+
+## Example
 
 ETH transfer gas used is typically `21,000`.
 
@@ -61,7 +71,7 @@ $$
 
 ## Part 2: Base Fee Adjustment Logic
 
-Sender transaction is not able to change below Variable! The base fee is auto calculated by the system when tx be call.
+Sender transactions cannot set `baseFee`. The protocol computes it deterministically from the parent block.
 
 ### Variable Ownership and Source of Truth
 
@@ -143,22 +153,29 @@ In execution, clients round by integer-wei math per consensus rules.
 
 ### 1. Transaction fee process
 
-The 3 Gas Fields User Need to Code
+The 3 gas fields users set in type-2 transactions:
 
 - `gasLimit` (or `gas`): Maximum gas units the transaction is allowed to consume.
 - `maxFeePerGas`: Maximum total price per gas unit you are willing to pay.
 - `maxPriorityFeePerGas`: Maximum validator tip per gas unit.
 
-- You only pay for `gasUsed`, not all of `gasLimit`. However the system would first use gasLimit as the total fee
+- You only pay for `gasUsed`, not all of `gasLimit`.
+- The execution-layer affordability bound before execution is:
 
 $$
-feePaid = gasLimit \times (baseFee + effectivePriorityFee)
+value + gasLimit \times maxFeePerGas
 $$
 
-If, gasLimit is larger than gasUsed
+- The final charged transaction fee is:
 
 $$
-Refund = feePaid - gasUsed \times (baseFee + effectivePriorityFee)
+actualFeePaid = gasUsed \times effectiveGasPrice
+$$
+
+- Conceptually, unused allowance can be viewed as:
+
+$$
+unusedAllowance = gasLimit \times maxFeePerGas - gasUsed \times effectiveGasPrice
 $$
 
 Refund behavior:
@@ -224,6 +241,60 @@ sender_balance -= total_deduction # fee charged
 total_supply -= burn_amount      # permanently burned
 validator_balance += validator_tip
 ```
-Base on this ETH is becoming rarer over time
-The network prints brand new ETH every day to pay validators (staking rewards) for securing the blockchain. This adds roughly ~2,600 to 2,800 ETH to the total supply daily.
-[ETH Supply](https://ultrasound.money/)
+
+## Part 4: ETH Supply and Burn Dynamics (EIP-1559)
+
+### Balanced equation
+
+ETH scarcity is a dynamic balance:
+
+$$
+\Delta Supply = New\ Issuance - Burn\ Amount
+$$
+
+### New issuance
+
+- Ethereum issues new ETH to pay validators for consensus security.
+- A common recent magnitude is roughly ~2,700 ETH/day, but this is not fixed.
+- Issuance scales with validator participation; in simplified terms, aggregate issuance grows sublinearly (approximately with the square root of total ETH staked).
+
+### Burn mechanism
+
+- For each included transaction, the protocol burns the base-fee portion:
+
+$$
+Burn = gasUsed \times baseFee
+$$
+
+- High activity periods can push burn above issuance (net deflation).
+- Lower L1 fee periods, including periods of higher activity on L2 after Dencun blob scaling, can reduce L1 burn below issuance (mild net inflation).
+
+References: [1](https://liquidityfinder.com/insight/crypto/the-ultimate-guide-to-gas-fees-explained-simply), [2](https://ethereum.org/developers/docs/intro-to-ether/), [3](https://ethereum.org/eth/supply/), [4](https://www.fidelitydigitalassets.com/research-and-insights/understanding-bitcoin-and-ethereum-supply), [5](https://bit-digital.com/blog/understanding-ethereum-deflationary-supply/)
+
+### Guardrail intuition (economic, not a hard protocol invariant)
+
+- ETH is not expected to mechanically burn to zero in practice.
+- If ETH becomes very scarce, validator yields and market dynamics can incentivize more staking and dampen fee-burning demand growth.
+
+Reference: [1](https://www.binance.com/en-IN/square/post/586931)
+
+## Part 5: The Dual-Token Model (Alternative Approach)
+
+### Setup
+
+Some chains use a two-token structure (for example, VeChain VET/VTHO and NEO/"GAS"):
+
+- Primary token: governance, staking, and core network value.
+- Secondary token: utility gas token used for fees and often burned.
+
+Reference: [1](https://blog.accubits.com/understanding-dual-token-economy-and-its-benefits/)
+
+### Enterprise advantage
+
+- Separating the gas token can reduce fee volatility for users and enterprises.
+- This can improve operating-cost predictability when gas-token policy is actively managed.
+
+### Crypto-economic tradeoff
+
+- Decoupling fee burn from the primary token can weaken direct value-capture feedback to the primary asset.
+- In practice, this may reduce alignment between network usage and primary-token scarcity, depending on chain design and governance.
