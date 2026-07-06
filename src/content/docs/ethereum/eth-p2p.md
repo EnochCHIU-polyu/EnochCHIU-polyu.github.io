@@ -1,7 +1,10 @@
 ---
 title: P2P Network
 description: A guide to peer discovery, gossip, and propagation in Ethereum.
+
 ---
+#### Overview (vanilla block building)
+![overview](../../../assets/overview.png)
 
 ## Part 1: What the Networking Layer Does
 
