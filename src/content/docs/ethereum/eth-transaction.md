@@ -155,6 +155,12 @@ In modern Ethereum, block processing includes both transactions and protocol-lev
 7. Proposer publishes the beacon block through CL.
 8. Network validation remains in-protocol (CL + EL checks).
 
+![MEV1](../../../assets/tx_MEV_step1.png)
+
+![MEV2](../../../assets/tx_MEV_step2.png)
+
+![MEV3](../../../assets/tx_MEV_step3.png)
+
 Important: builder/relay/MEV-Boost are out-of-protocol market infrastructure; Ethereum consensus/finality rules remain in CL + EL protocol clients.
 
 #### Transaction Creation and Propagation
