@@ -217,13 +217,13 @@ Depending on lecture constants/rounding assumptions, you may also see nearby val
 A non-proposer validator performing attestation duties can receive up to approximately:
 
 $$
-AttesterReward_{max} \approx \frac{7}{8} \times BaseReward
+AttesterReward_{max} \approx \frac{7}{8} \times BaseReward + \frac{priority fee}{validators}
 $$
 
 Using the same base reward:
 
 $$
-AttesterReward_{max} \approx \frac{7}{8} \times 3,695 = 3,233.125\ gwei
+AttesterReward_{max} \approx \frac{7}{8} \times 3,695 + \frac{0.05}{600,000} = 3,233.125\ gwei
 $$
 
 #### D) Slashing-Inclusion Reward (Proposer)

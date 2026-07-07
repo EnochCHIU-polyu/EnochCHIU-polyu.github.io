@@ -296,6 +296,32 @@ $$
 - A common recent magnitude is roughly ~2,700 ETH/day, but this is not fixed.
 - Issuance scales with validator participation; in simplified terms, aggregate issuance grows sublinearly (approximately with the square root of total ETH staked).
 
+#### A) New issuance Example, for more detail please go to [PoS page](/ethereum/eth-pos/)
+
+Assume:
+
+- Active validators = 600,000
+- Effective balance per validator (example assumption) = 32 ETH = 32 * 10^9 gwei
+
+Formula:
+$$
+BaseReward = \frac{EffectiveBalance \times 64}{\sqrt{TotalActiveBalance} \times 4}
+$$
+
+$$
+ProposerShare \approx attestations  \times \frac{1}{8} \times BaseReward
+$$
+
+$$
+ValidatorReward_{max} \approx \frac{7}{8} \times BaseReward + \frac{priority fee}{validators}
+$$
+
+
+Thus,
+$$
+New issuance = ProposerShare + ValidatorReward - priority fee
+$$
+
 ### Burn mechanism
 
 - For each included transaction, the protocol burns the base-fee portion:
@@ -306,6 +332,8 @@ $$
 
 - High activity periods can push burn above issuance (net deflation).
 - Lower L1 fee periods, including periods of higher activity on L2 after Dencun blob scaling, can reduce L1 burn below issuance (mild net inflation).
+
+ETH Supply in real-time: [ETH supply](https://ultrasound.money/)
 
 References: [1](https://liquidityfinder.com/insight/crypto/the-ultimate-guide-to-gas-fees-explained-simply), [2](https://ethereum.org/developers/docs/intro-to-ether/), [3](https://ethereum.org/eth/supply/), [4](https://www.fidelitydigitalassets.com/research-and-insights/understanding-bitcoin-and-ethereum-supply), [5](https://bit-digital.com/blog/understanding-ethereum-deflationary-supply/)
 

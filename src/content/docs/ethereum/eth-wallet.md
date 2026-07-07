@@ -115,6 +115,18 @@ Example:
 - Account 1: `m/44'/60'/0'/0/0`
 - Account 2: `m/44'/60'/0'/0/1`
 
+```
+
+               [ Your 12-Word Master Seed Phrase ]
+                               │
+         ┌─────────────────────┼─────────────────────┐
+         ▼                     ▼                     ▼
+   [ Account 1 ]         [ Account 2 ]         [ Account 3 ]
+   Address: 0xAbc...     Address: 0xDef...     Address: 0xGhi...
+
+```
+
+
 Security and privacy caveats:
 
 - These accounts are independent on-chain addresses (separate balances/nonces).
