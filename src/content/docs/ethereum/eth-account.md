@@ -30,6 +30,7 @@ Ethereum has two account types. Both follow the same four-field state model, but
 - `code` is empty.
 - `storage` is empty.
 - Creating an EOA does not require deployment; it typically first appears in state when funded or when it sends its first transaction.
+- In HD wallets (for example MetaMask), multiple EOAs can be derived from one mnemonic using different derivation indices.
 
 ### Contract Account
 

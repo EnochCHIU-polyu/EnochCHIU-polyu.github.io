@@ -18,6 +18,8 @@ Both layers communicate through authenticated APIs (Engine API) to keep executio
 
 ![eth-node](../../../assets/eth-node.png)
 
+Real-time overview of nodes in the Ethereum network: [Map of node](https://etherscan.io/nodetracker)
+
 ## Part 2: Node Types and Responsibilities
 
 ### 1. Full Node - Focused on current state
@@ -26,19 +28,21 @@ Both layers communicate through authenticated APIs (Engine API) to keep executio
 - Serves chain data to local applications through JSON-RPC.
 - Usually stores recent state and enough history for common wallet and dApp queries.
 
+The way for running your own node: [run-a-node](https://ethereum.org/developers/docs/nodes-and-clients/run-a-node/)
+
 ### 2. Archive Node - Full historical state from genesis
 
 - Preserves full historical state at every block.
 - Supports deep historical queries and advanced analytics.
 - Requires substantially more storage and operational cost than a standard full node.
 
-### 3. Validator Node
+### 3. Light Node - Summary state and header verification
 
-- Runs both execution and consensus clients.
-- Includes validator keys used for proposing and attesting blocks.
-- Must maintain high availability and correct time synchronization.
+- Verifies data independently: Downloads only block headers and verifies received data against state roots without downloading entire blocks.
+- Minimizes hardware barriers: Lowers storage and bandwidth requirements, enabling future compatibility with mobile phones and embedded devices.
+- Relies on the network for details: Requests specific blockchain data from full nodes while maintaining security guarantees, though it cannot participate in consensus.
 
-### 4. Remote Client - Wallet
+### Remote Client - Wallet - [wallet](/ethereum/eth-wallet)
 
 Remote clients provide a subset of full-node functionality. Because they do not store the complete blockchain state, they are faster to set up and require significantly less storage.
 
@@ -52,7 +56,7 @@ In practice, remote clients usually support one or more of the following capabil
 - Converting ether units and retrieving market data from external providers
 - Injecting a Web3 provider into the browser as a JavaScript object
 - Using a Web3 provider injected by another wallet or client
-- Connecting to RPC endpoints on local or remote Ethereum nodes
+- **Connecting to RPC endpoints on local or remote Ethereum nodes**
 
 
 ## Part 3: Client Stack in Practice

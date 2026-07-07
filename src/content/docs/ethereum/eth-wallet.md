@@ -89,6 +89,38 @@ One-way implication:
 - Public key can produce address.
 - Address alone cannot recover the public key for arbitrary accounts before a signature reveals needed data.
 
+### 4. MetaMask: Create Additional Accounts After Unlock
+
+After unlocking MetaMask, users can create additional accounts without generating a new Secret Recovery Phrase.
+
+- Extension (high level):
+	1. Unlock MetaMask.
+	2. Open the account selector.
+	3. Choose "Add account or hardware wallet" (label can vary by version).
+	4. Select "Create account."
+- Mobile (high level):
+	1. Unlock the MetaMask app.
+	2. Open the account switcher.
+	3. Tap "Add account."
+	4. Select "Create new account."
+
+Technical model:
+
+- MetaMask follows HD derivation based on BIP-39 (mnemonic), BIP-32 (key tree), and BIP-44 (path convention).
+- Accounts created this way are child keys from the same mnemonic root, typically at increasing address indices.
+- A common Ethereum path form is `m/44'/60'/0'/0/n`, where `n` increments for each added account.
+
+Example:
+
+- Account 1: `m/44'/60'/0'/0/0`
+- Account 2: `m/44'/60'/0'/0/1`
+
+Security and privacy caveats:
+
+- These accounts are independent on-chain addresses (separate balances/nonces).
+- They are not guaranteed to be unlinkable in practice; transaction graph overlap and funding patterns can still reveal relationships.
+- This account-indexing behavior is unrelated to validator keys and consensus participation.
+
 ## Part 4: Custody and Key-Control Models
 
 ### 1. Self-Custody
@@ -182,6 +214,7 @@ A compact classification useful for architecture decisions:
 - [ERC-4337 Specification](https://eips.ethereum.org/EIPS/eip-4337)
 - [ERC-4337 Docs](https://docs.erc4337.io/)
 - [MetaMask Smart Accounts Overview](https://support.metamask.io/)
+- [MetaMask: Add Accounts in Your Wallet](https://support.metamask.io/configure/accounts/how-to-add-accounts-in-your-wallet/)
 - [Safe Smart Account Docs](https://docs.safe.global/)
 - [BIP-32](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki)
 - [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki)
