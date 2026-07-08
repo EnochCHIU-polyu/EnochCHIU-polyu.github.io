@@ -38,6 +38,7 @@ export default defineConfig({
 						{ label: 'Transaction Processing', link: '/ethereum/eth-transaction/' },
 						{ label: 'Gas', link: '/ethereum/eth-gas/' },
 						{ label: 'Proof of Stake', link: '/ethereum/eth-pos/' },
+						{ label: 'Stake pooling', link: '/ethereum/eth-stakepooling/' },
 						{ label: 'Transaction with Go code', link: '/ethereum/eth-transaction-code/' },
 						{ label: 'Wallet', link: '/ethereum/eth-wallet/' },
 						{ label: 'DIY Wallet (Python)', link: '/ethereum/eth-wallet-diy/' },
