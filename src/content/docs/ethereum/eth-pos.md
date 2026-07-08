@@ -64,9 +64,14 @@ Operational notes:
 - Via **EIP-6110**, deposit data is sourced from execution-layer blocks, reducing deposit processing latency before activation-queue effects.
 - Via **EIP-7002** (on networks where activated), execution-layer triggered withdrawal/exit flows are supported, reducing dependence on operator-pre-signed exit coordination.
 
-## Part 2A: Full Node vs Validator
+![overview](../../../assets/eth-pos-overview.png)
 
-### 1. Different Roles in the Stack
+
+## Part 3: Technical breakdown
+
+### 3.1: Full Node vs Validator
+
+#### 1. Different Roles in the Stack
 
 A validator is not the same thing as a full node.
 
@@ -74,7 +79,7 @@ A validator is not the same thing as a full node.
 - The same stack also includes a **consensus client (CL)** that tracks beacon-chain state, fork choice, committees, attestations, finality, and beacon-block validity.
 - A **validator client (VC)** is the component that holds validator signing keys and performs validator duties such as block proposals, attestations, and sync-committee messages when applicable.
 
-### 2. What the Validator Depends On
+#### 2. What the Validator Depends On
 
 It is misleading to describe a validator as a signer that operates independently of node software.
 
@@ -83,7 +88,7 @@ It is misleading to describe a validator as a signer that operates independently
 
 In practice, validator signatures are meaningful only because the surrounding node stack has already validated enough state to make that duty current and valid.
 
-### 3. Private Key Isolation
+#### 3. Private Key Isolation
 
 Operationally, key separation matters.
 
@@ -93,7 +98,7 @@ Operationally, key separation matters.
 
 The core safety goal is to avoid the same validator key signing conflicting duties from multiple active instances.
 
-### 4. One Infrastructure Stack, Many Validators
+#### 4. One Infrastructure Stack, Many Validators
 
 A validator is an on-chain identity, not a requirement for a dedicated EL/CL pair.
 
@@ -107,9 +112,9 @@ What must be controlled is not "one node per validator" but:
 - consistency of chain view during failover;
 - safe duty handoff between active and standby systems.
 
-## Part 2B: Participation Paths by Stake Size
+### 3.2: Participation Paths by Stake Size
 
-### 1. Less Than 32 ETH
+#### 1. Less Than 32 ETH
 
 A balance below **32 ETH** cannot directly activate a native validator index because the protocol minimum activation balance remains **32 ETH**.
 
@@ -121,7 +126,7 @@ Common participation paths:
 - **Liquid staking** issues a tokenized claim on staked ETH plus accrued rewards. Tradeoff: adds smart-contract risk, liquidity-token market risk, and possible validator-set concentration risk.
 - **Custodial or delegated staking** lets an exchange or service stake on the user's behalf. Tradeoff: simplest user experience, but weaker self-custody and greater counterparty dependence.
 
-### 2. Exactly 32 ETH
+#### 2. Exactly 32 ETH
 
 At **32 ETH**, a user can operate one validator directly.
 
@@ -138,7 +143,7 @@ In practice, the critical questions are who controls:
 - exit coordination;
 - recovery during outages or key loss.
 
-### 3. More Than 32 ETH
+#### 3. More Than 32 ETH
 
 For balances above **32 ETH**, the participation model depends on protocol era and operator goals.
 
@@ -157,180 +162,12 @@ Tradeoffs for larger positions:
 - **More validator indices** provide finer operational granularity, but require more keys, more duties, and more signing overhead.
 - **Fewer, larger validator balances** reduce validator-count overhead and can simplify fleet management, but change the concentration and operational-risk profile per validator index.
 
-### 4. Practical Trust and Operations Summary
+#### 4. Practical Trust and Operations Summary
 
 - **Solo staking** offers the lowest trust in third parties, but the highest operational responsibility.
 - **Non-custodial pooled or liquid systems** lower the capital barrier, but add smart-contract, governance, and concentration risks.
 - **Delegated or staking-as-a-service models** improve convenience for 32 ETH holders, but shift trust toward the operator's uptime, security, and signing discipline.
 - **Custodial exchange staking** has the lowest operational burden, but the highest counterparty and custody dependence.
-
-## Part 2C: What 32 ETH Actually Means in Practice
-
-### 1. Holding 32 ETH Does Not Automatically Make You a Validator
-
-A common misunderstanding is that simply holding **32 ETH** in a wallet means you are already staking or that Ethereum will somehow recognize you as a validator automatically.
-
-That is not how Ethereum works.
-
-At the protocol level, native staking begins when a participant explicitly deposits ETH to activate validator software. Merely owning **32 ETH** in an address does not create a validator index, does not enroll that balance into committee assignments, and does not cause the network to assign proposer or attester duties.
-
-To become a native validator, a participant must complete an explicit onboarding flow:
-
-1. Prepare validator credentials.
-2. Generate validator keys and withdrawal credentials.
-3. Create valid deposit data.
-4. Send a one-way ETH transaction on Ethereum mainnet to the official deposit contract.
-5. Run, or arrange the operation of, the validator software stack that will perform duties after activation.
-6. Wait for deposit recognition and the activation queue before the validator becomes active.
-
-The practical boundary is:
-
-- Holding **32 ETH** is a capital prerequisite.
-- Depositing **32 ETH** to the deposit contract is the protocol enrollment step.
-- Running validator infrastructure is what allows that enrolled validator to actually perform consensus duties.
-
-### 2. What a Solo Validator Actually Requires
-
-For solo staking, a validator is not just a wallet balance and not just a signing process.
-
-A practical solo-staking setup normally includes:
-
-- an **execution layer client (EL)** that follows and validates the execution chain;
-- a **consensus layer client (CL)** that follows beacon-chain state, fork choice, committees, and finality;
-- a **validator client (VC)** that performs duties for the validator keys;
-- a machine that stays online reliably enough to keep these components synchronized and ready for duty;
-- ongoing monitoring and maintenance so the node remains healthy over time.
-
-Direct staking is therefore an operational role, not a passive wallet state.
-
-A careful operator usually prepares the stack in this order:
-
-1. Choose an execution client and a consensus client.
-2. Set up hardware with sufficient headroom for continuous operation.
-3. Sync the EL and CL clients.
-4. Generate validator keys and withdrawal credentials.
-5. Load the validator signing key into the validator client, or into a remote-signing arrangement if used.
-6. Verify the withdrawal destination carefully.
-7. Submit the deposit transaction to the mainnet deposit contract.
-8. Monitor the node while waiting for activation.
-
-This is why ethereum.org describes solo staking as requiring an EL client, a CL client, key generation, loading keys into a validator client, and then monitoring and maintaining the node.
-
-### 3. Key Separation Matters
-
-Ethereum validator setup involves more than one key role, and mixing them up creates real risk.
-
-A conservative mental model is:
-
-- the **validator signing key** is an online operational key used repeatedly for attestations, block proposals, and other consensus messages;
-- the **withdrawal credential** identifies where withdrawals can ultimately be directed and should usually be protected more conservatively than the hot signing path.
-
-This distinction matters because the validator must sign frequently, but the withdrawal path should not need routine online exposure.
-
-Operationally, many stakers try to keep these responsibilities separate:
-
-- the validator signing key is loaded into the validator client or signing service;
-- the withdrawal destination is checked carefully before deposit;
-- recovery material and backups are stored offline or otherwise protected with stronger controls;
-- the same validator signing key is never allowed to run from two active instances at once.
-
-That last point is especially important. Duplicate active signing for the same validator can create slashable conflicts.
-
-### 4. Hardware and Software Requirements Are Real
-
-The **32 ETH** threshold is only the financial threshold. It is not the complete validator requirement.
-
-A direct validator also needs functioning infrastructure:
-
-- a dedicated or otherwise reliable machine is strongly preferred;
-- persistent storage must be fast enough for client databases and ongoing chain growth;
-- internet connectivity must be stable enough for continuous sync and timely duties;
-- the software stack must be updated, monitored, and recovered safely after failures;
-- the operator must be able to respond to outages, disk issues, client bugs, and configuration mistakes.
-
-Ethereum does not require enterprise hardware for home staking, but it does require a serious always-on system design. Exact hardware recommendations change over time, so it is safer to cite current operational guides than to hard-code numbers in the article.
-
-A useful clarification for readers is that running a node and running a validator are related but different:
-
-- anyone can run a node without staking;
-- a validator depends on node software;
-- a validator without a healthy EL and CL stack is not a complete working staking setup.
-
-### 5. Deposit Flow: How a Validator Is Actually Created
-
-The Launchpad exists to guide this onboarding flow because becoming a validator is an explicit protocol action.
-
-In simplified form, the native deposit flow is:
-
-1. The staker generates validator credentials and deposit data.
-2. The deposit data contains the validator public key, withdrawal credentials, signature material, and the amount to be deposited.
-3. The staker sends ETH on Ethereum mainnet to the official deposit contract.
-4. That deposit transaction is one-way. It is not a normal reversible application action and does not itself withdraw back out of the deposit contract on demand.
-5. The consensus layer later recognizes the deposit information and adds the validator to the onboarding pipeline.
-6. The validator then waits through activation mechanics before it can begin duties.
-
-The important boundary is that the deposit transaction happens on the mainnet execution layer, while validator activation and duty scheduling happen on the consensus layer.
-
-That separation helps explain why "I have 32 ETH in my wallet" and "I am an active validator" are very different states.
-
-### 6. Deposit Does Not Mean Immediate Activation
-
-Even after a correct deposit, a validator does not become active instantly.
-
-A newly deposited validator typically passes through at least three practical stages:
-
-- deposit submitted and recognized;
-- queued for activation;
-- active and eligible for duties.
-
-The waiting period exists because Ethereum limits how quickly validators can enter and leave the active set. This activation queue helps the network absorb validator-set changes in a controlled way rather than instantly.
-
-So the full story is:
-
-- wallet balance alone does nothing at the validator-registry level;
-- deposit creates the path into the validator set;
-- queue mechanics delay activation when necessary;
-- only after activation does the validator begin proposer and attester duties.
-
-This also means the software stack should be ready before the validator reaches active status. If the validator becomes active while the node is not healthy, it can miss duties and underperform immediately.
-
-### 7. Operational Variants at the 32 ETH Threshold
-
-A user with **32 ETH** has more than one way to reach staking exposure, but the trust and operating model changes materially across those paths.
-
-| Path | Who runs the infrastructure? | Who usually controls the validator signing path? | Who usually retains the stronger claim over withdrawals? | Main tradeoff |
-| --- | --- | --- | --- | --- |
-| Solo staking | The staker | The staker | The staker | Lowest third-party trust, highest operational responsibility |
-| Staking as a service | A third-party operator | Often the operator after the staker uploads signing credentials or grants signing access | Often the staker retains the withdrawal side, but provider design varies | Keeps a native 32 ETH validator structure while outsourcing operations, but adds operator trust |
-| Pooled staking | A protocol-selected or provider-selected operator set | Usually not the end user | Usually governed by protocol contracts, pool design, or provider rules rather than a dedicated personal validator setup | Lower capital barrier and easier access, but adds smart-contract, governance, and concentration risk |
-| Centralized exchange staking | The exchange or its delegates | The exchange | The exchange or the exchange-controlled withdrawal process | Simplest user experience, but highest custody and counterparty dependence |
-
-A useful summary is:
-
-- solo staking is the clearest "my validator, my operations" model;
-- staking as a service keeps the 32 ETH validator threshold but outsources operations;
-- pooled staking lowers the capital threshold by adding coordination layers above the protocol;
-- exchange staking usually gives the user an account-level claim, not direct validator-level control.
-
-### 8. Practical Reading of the 32 ETH Rule
-
-The simplest accurate sentence for readers is:
-
-Owning **32 ETH** gives you the option to onboard a native validator, but it does not make you a validator until you complete the deposit flow and have validator infrastructure ready to operate.
-
-That framing avoids two common errors:
-
-- treating staking as if it were an automatic wallet yield;
-- treating validator operation as if it were only a deposit action with no ongoing system responsibility.
-
-For Ethereum, both sides matter:
-
-- capital must be committed through the deposit contract;
-- software must be prepared to carry out consensus duties after activation.
-
-## Part 3: Overview
-
-![overview](../../../assets/eth-pos-overview.png)
 
 ## Part 4: Committees and RANDAO
 
