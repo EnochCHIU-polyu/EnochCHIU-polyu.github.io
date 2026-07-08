@@ -80,7 +80,7 @@ Ethereum's EVM is considered Turing-complete in the theoretical sense because it
 | ---- | -------------------------------------------------------------- | ------------------------------------------------------- |
 | 1    | Node roles, client architecture, and deployment basics         | [eth-node](/ethereum/eth-node/)                         |
 | 2    | Peer discovery, gossip, and propagation in the network         | [eth-p2p](/ethereum/eth-p2p/)                           |
-| 3    | Cryptographic primitives, signatures, and verification model   | [eth-cryptography](/ethereum/eth-cryptography/)         |
+| 3    | Cryptographic primitives, signatures, and verification model   | [eth-elliptic-curve](/ethereum/eth-elliptic-curve/)     |
 | 4    | Merkle trees, MPT roots, and Verkle roadmap concepts           | [eth-merkle-trie](/ethereum/eth-merkle-trie/)           |
 | 5    | User identity and account model (EOA/contract)                 | [eth-account](/ethereum/eth-account/)                   |
 | 6    | Wallet models, custody, and account abstraction mental model   | [eth-wallet](/ethereum/eth-wallet/)                     |

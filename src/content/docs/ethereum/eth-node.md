@@ -113,6 +113,3 @@ In the future, new types of Ethereum clients will be available since the researc
 - History pruning - Prune historical data to lower the storage requirement for a full node
 - Verkle trees and statelessness - Be able to verify a block without having the full Ethereum state
 - zk-EVM - Verify the correctness of a block by verifying a zero-knowledge proof without having to reexecute all the transactions in the block
-
-
-Next step: [eth-p2p](/ethereum/eth-p2p/)

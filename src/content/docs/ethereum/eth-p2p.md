@@ -127,5 +127,3 @@ This division keeps responsibilities clear:
 ## Part 7: Summary
 
 Ethereum networking is not a single network but two coordinated peer-to-peer systems: one for EL transaction/block propagation and one for CL beacon/validator communication. Discovery, gossip, request-response, and local EL-CL Engine API coordination work together to keep the chain synchronized and secure.
-
-Next step: [eth-cryptography](/ethereum/eth-cryptography/)

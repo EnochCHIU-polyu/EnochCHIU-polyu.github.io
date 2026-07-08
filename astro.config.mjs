@@ -34,7 +34,7 @@ export default defineConfig({
 						{ label: 'P2P Network', link: '/ethereum/eth-p2p/' },
 						{ label: 'Merkle and Trie Concepts', link: '/ethereum/eth-merkle-trie/' },
 						{ label: 'Accounts (20 Bytes)', link: '/ethereum/eth-account/' },
-						{ label: 'Cryptography', link: '/ethereum/eth-cryptography/' },
+						{ label: 'Cryptography', link: '/ethereum/eth-elliptic-curve/' },
 						{ label: 'Transaction Processing', link: '/ethereum/eth-transaction/' },
 						{ label: 'Gas', link: '/ethereum/eth-gas/' },
 						{ label: 'Proof of Stake', link: '/ethereum/eth-pos/' },

@@ -146,5 +146,3 @@ Security inheritance model:
 	- Rollups, parallel execution, sharding, and modular architectures.
 
 [More about Blockchain](https://kauri.io/#communities/Getting%20started%20with%20dapp%20development/blockchain-explained/)
-
-Next step: [eth](/ethereum/eth/)
