@@ -4,6 +4,7 @@ description: A guide to Ethereum block structure, transaction fields, and lifecy
 ---
 #### Overview (vanilla block building)
 ![overview](../../../assets/tx_overview.png)
+![overview2](../../../assets/tx_overview_2.png)
 
 # Ethereum Transaction types
 

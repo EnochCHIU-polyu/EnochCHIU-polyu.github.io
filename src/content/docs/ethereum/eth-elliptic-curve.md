@@ -1,5 +1,5 @@
 ---
-title: elliptic-curve
+title: Elliptic-curve
 description: A guide to Ethereum cryptographic primitives, signatures, hashing, and proofs.
 ---
 
