@@ -65,19 +65,19 @@ As of June 2025, there are five main implementations of the Ethereum execution p
 
 The **execution** clients are:
   
-- Geth, written in Go
-- Nethermind, written in C#
-- Besu, written in Java
-- Erigon, written in Go
-- Reth, written in Rust
+- [Geth, written in Go](https://geth.ethereum.org/)
+- [Nethermind, written in C#](https://www.nethermind.io/)
+- [Besu, written in Java](https://docs.besu-eth.org/)
+- [Erigon, written in Go](https://github.com/erigontech/erigon)
+- [Reth, written in Rust](https://reth.rs/)
 
 The **consensus** clients are:
   
-- Lighthouse, written in Rust
-- Lodestar, written in TypeScript
-- Nimbus, written in Nim
-- Prysm, written in Go
-- Teku, written in Java
+- [Lighthouse, written in Rust](https://lighthouse.sigmaprime.io/)
+- [Lodestar, written in TypeScript](https://lodestar.chainsafe.io/)
+- [Nimbus, written in Nim](https://nimbus.team/)
+- [Prysm, written in Go](https://prysm.offchainlabs.com/docs/)
+- [Teku, written in Java](https://consensys.io/teku)
 
 You can combine any supported execution and consensus clients to run an Ethereum node.
 

@@ -2,11 +2,6 @@
 title: Transaction Processing
 description: A guide to Ethereum block structure, transaction fields, and lifecycle.
 ---
-#### Overview (vanilla block building)
-![overview1](../../../assets/tx_overview_1.png)
-![overview2](../../../assets/tx_overview_2.png)
-![overview3](../../../assets/tx_overview_3.png)
-![overview4](../../../assets/tx_overview_4.png)
 
 # Ethereum Transaction types
 
@@ -71,6 +66,55 @@ An Ethereum transaction is a signed message that requests value transfer or cont
 [Live-time gas price](https://etherscan.io/gastracker)
 
 [More detail on gas](/ethereum/eth-gas/)
+
+#### Overview (vanilla block building)
+![overview1](../../../assets/tx_overview_1.png)
+![overview2](../../../assets/tx_overview_2.png)
+![overview3](../../../assets/tx_overview_3.png)
+![overview4](../../../assets/tx_overview_4.png)
+
+#### Estimated Transaction number in block
+
+The number of transactions selected in a block depends on that block's `gasLimit` and the gas profile of included transactions. View live time gas limit: [Gas Limit monitor](https://eth.blockscout.com/stats/averageGasLimit?interval=threeMonths)
+
+1. Extreme theoretical upper bound (simple ETH transfers only)
+
+If all included transactions are the simplest ETH transfers (no smart-contract execution):
+
+- **Gas per transaction:** fixed at **21,000 gas**.
+- **Example (if `gasLimit = 30,000,000`):** 30,000,000 / 21,000 = 1,428.57
+- **Conclusion for this example:** one completely full block can contain about **1,428 transactions**.
+
+#### How Many Transactions Would Be Selected in a Block?
+
+Use the block gas limit divided by average gas per transaction:
+
+$$
+TxPerBlock \approx \frac{GasLimit_{block}}{AvgGasPerTx}
+$$
+
+For the pure ETH transfer upper-bound example with `GasLimit_block = 30,000,000`:
+
+$$
+TxPerBlock_{max} \approx \frac{30,000,000}{21,000} \approx 1,428
+$$
+
+#### TPS Calculation
+
+Assuming average block time is about 12 seconds:
+
+$$
+TPS = \frac{TxPerBlock}{BlockTimeSeconds}
+$$
+
+For the upper-bound simple-transfer case:
+
+$$
+TPS_{max} \approx \frac{1,428}{12} \approx 119
+$$
+
+So the theoretical maximum in this simplified scenario is about **119 TPS**.
+
 
 ## Part 3: Transaction Lifecycle
 
@@ -294,50 +338,6 @@ In post-Merge Ethereum, block construction is commonly separated from block prop
 3. **Blind handshake:** The proposer signs the selected blinded header, and the relay releases the full execution payload for the winning bid path.
 4. **Block assembly for proposal (CL):** The proposer CL assembles the beacon block using the winning execution payload reference/data and proposer signature.
 
-
-#### Estimated Transaction number in block
-
-The number of transactions selected in a block depends on that block's `gasLimit` and the gas profile of included transactions.
-
-1. Extreme theoretical upper bound (simple ETH transfers only)
-
-If all included transactions are the simplest ETH transfers (no smart-contract execution):
-
-- **Gas per transaction:** fixed at **21,000 gas**.
-- **Example (if `gasLimit = 30,000,000`):** 30,000,000 / 21,000 = 1,428.57
-- **Conclusion for this example:** one completely full block can contain about **1,428 transactions**.
-
-#### How Many Transactions Would Be Selected in a Block?
-
-Use the block gas limit divided by average gas per transaction:
-
-$$
-TxPerBlock \approx \frac{GasLimit_{block}}{AvgGasPerTx}
-$$
-
-For the pure ETH transfer upper-bound example with `GasLimit_block = 30,000,000`:
-
-$$
-TxPerBlock_{max} \approx \frac{30,000,000}{21,000} \approx 1,428
-$$
-
-#### TPS Calculation (English Format)
-
-Assuming average block time is about 12 seconds:
-
-$$
-TPS = \frac{TxPerBlock}{BlockTimeSeconds}
-$$
-
-For the upper-bound simple-transfer case:
-
-$$
-TPS_{max} \approx \frac{1,428}{12} \approx 119
-$$
-
-So the theoretical maximum in this simplified scenario is about **119 TPS**.
-
-[^GasLimit]: 21,000 gas is the intrinsic gas cost of a standard ETH transfer without contract execution.
 
 ### 6. EVM Execution
 
