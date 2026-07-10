@@ -3,8 +3,10 @@ title: Transaction Processing
 description: A guide to Ethereum block structure, transaction fields, and lifecycle.
 ---
 #### Overview (vanilla block building)
-![overview](../../../assets/tx_overview.png)
+![overview1](../../../assets/tx_overview_1.png)
 ![overview2](../../../assets/tx_overview_2.png)
+![overview3](../../../assets/tx_overview_3.png)
+![overview4](../../../assets/tx_overview_4.png)
 
 # Ethereum Transaction types
 
