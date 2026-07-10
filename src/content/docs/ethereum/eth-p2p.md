@@ -194,43 +194,6 @@ Tradeoffs:
 Realistic example:
 A consensus node receives a beacon block reference but lacks some related data needed to complete local processing. It issues targeted requests to peers for missing objects rather than gossiping a broad network query.
 
-## High-Level Propagation Flow: From Transaction to Consensus Inclusion
-
-The full Ethereum path spans both networks plus local client coupling.
-
-### Stage 1: Transaction enters execution network
-
-- A user submits a transaction through an RPC endpoint to an execution client.
-- The execution client verifies transaction validity at policy/protocol checks.
-- The transaction is added to local pending pool if acceptable.
-- The execution node gossips the transaction to execution peers.
-- Other execution peers repeat validation and onward relay.
-
-### Stage 2: Block building opportunity appears on consensus side
-
-- Consensus protocol determines proposer duties for a given slot.
-- The proposer-side consensus client coordinates locally with its paired execution client.
-- Through Engine API calls, the consensus client requests payload construction parameters and obtains an execution payload candidate.
-
-### Stage 3: Payload and beacon block assembly
-
-- Execution client selects and executes transactions for the payload candidate according to local mempool/state view and protocol rules.
-- Execution client returns payload data and status interfaces through Engine API methods.
-- Consensus client embeds execution payload into beacon block structure and signs/broadcasts according to consensus rules.
-
-### Stage 4: Consensus gossip dissemination
-
-- The proposed beacon block is gossiped over consensus network topics.
-- Other consensus nodes perform consensus-level checks and execution-payload validation workflows via their own local execution clients.
-- Validators produce and gossip attestations indicating their view.
-- Fork-choice updates and cumulative attestations drive head selection and, over time, finality progression.
-
-This flow shows why two P2P networks are necessary:
-
-- Execution gossip efficiently distributes raw transaction demand.
-- Consensus gossip efficiently distributes proposal and attestation signals that decide canonical chain progression.
-- Local Engine API coupling ensures both views remain coherent on each node pair.
-
 ## Engine API and the Local Trust Boundary
 
 Engine API is the standardized local interface between consensus and execution clients on the same node setup.
