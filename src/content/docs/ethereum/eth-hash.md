@@ -105,16 +105,18 @@ A block hash identifies a block header.
 
 For execution-layer blocks, the header includes fields such as:
 
-- parent hash,
-- state root,
-- transactions root,
-- receipts root,
-- logs bloom,
-- gas fields,
-- timestamp,
-- extra data,
-- base fee per gas,
-- withdrawals root or other fork-specific fields.
+| Header field                                   | Description                                                    |
+| ---------------------------------------------- | -------------------------------------------------------------- |
+| parent hash                                    | Hash of the parent block header.                               |
+| state root                                     | Root commitment of the post-state trie.                        |
+| transactions root                              | Root commitment of all transactions in the block.              |
+| receipts root                                  | Root commitment of transaction receipts.                       |
+| logs bloom                                     | Bloom filter summarizing emitted logs for efficient filtering. |
+| gas fields                                     | Gas limit, gas used, and related gas accounting fields.        |
+| timestamp                                      | Block production time set by the proposer.                     |
+| extra data                                     | Optional arbitrary metadata field in the header.               |
+| base fee per gas                               | Protocol-defined base fee used by EIP-1559 fee mechanics.      |
+| withdrawals root or other fork-specific fields | Root or fields added by protocol upgrades (fork dependent).    |
 
 Any change in the header changes the block hash.
 

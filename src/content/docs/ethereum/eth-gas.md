@@ -170,9 +170,11 @@ In execution, clients round by integer-wei math per consensus rules.
 
 The 3 gas fields users set in type-2 transactions:
 
-- `gasLimit` (or `gas`): Maximum gas units the transaction is allowed to consume.
-- `maxFeePerGas`: Maximum total price per gas unit you are willing to pay.
-- `maxPriorityFeePerGas`: Maximum validator tip per gas unit.
+| Field                  | Description                                              |
+| ---------------------- | -------------------------------------------------------- |
+| `gasLimit`             | Maximum gas units the transaction is allowed to consume. |
+| `maxFeePerGas`         | Maximum total price per gas unit you are willing to pay. |
+| `maxPriorityFeePerGas` | Maximum validator tip per gas unit.                      |
 
 - You only pay for `gasUsed`, not all of `gasLimit`.
 - The execution-layer affordability bound before execution is:

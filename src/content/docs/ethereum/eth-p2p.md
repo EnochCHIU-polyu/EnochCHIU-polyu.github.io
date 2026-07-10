@@ -3,127 +3,353 @@ title: P2P Network
 description: A guide to peer discovery, gossip, and propagation in Ethereum.
 
 ---
-## Part 1: What the Networking Layer Does
+## Ethereum Networking Layer: Execution, Consensus, and Their Coordination
 
-Ethereum is a peer-to-peer network made up of many nodes that must exchange information using standardized protocols. The networking layer is the stack that allows those nodes to find one another, connect securely, and communicate.
+Ethereum networking is easiest to understand as two peer-to-peer systems running side by side:
 
-At a high level, the networking layer supports two communication patterns:
+- An execution-layer network for transaction and execution payload data paths.
+- A consensus-layer network for beacon-chain coordination, block proposal propagation, and validator messages.
 
-- Gossip:
-	- One node sends data to many peers.
-	- Used for fast propagation of transactions, blocks, attestations, and other network-wide data.
-- Request-response:
-	- One node requests specific data from another node.
-	- Used for targeted queries such as syncing state, fetching blocks, or retrieving specific records.
+This split became core architecture after proof-of-stake. It is not just an implementation detail. It is a boundary between two different protocol responsibilities, two different data models, and two different networking stacks.
 
-## Part 2: Execution-Layer Networking
+For intermediate developers, the key idea is this: Ethereum reaches global agreement through consensus clients, but it computes state transitions through execution clients. The networking layer reflects that separation.
 
-Execution clients form an execution-layer (EL) P2P network for transaction and block propagation, plus sync-related request-response traffic.
+## Why Execution and Consensus Networking Are Separate
 
-### 1. Discovery
+A single network stack could in theory carry all traffic, but Ethereum intentionally separates concerns.
 
-- New nodes discover peers through bootnodes and node records.
-- Discovery is built on UDP because it is lightweight and efficient for initial peer finding.
-- Ethereum uses ENRs (Ethereum Node Records) to store a node’s identity and connection information.
-- In practice, EL clients commonly support discv4 and/or discv5 discovery, depending on client and configuration.
+Execution-layer networking focuses on:
 
-#### Advanced Bootnode Architecture & Trust Minimization
+- Propagating pending transactions.
+- Exchanging execution-related chain data for syncing and validation.
+- Supporting execution-state oriented protocols.
 
-Bootnodes serve exclusively as network discovery seeds within the Ethereum topology; they sit strictly outside the consensus and execution trust boundaries.
+Consensus-layer networking focuses on:
 
-While bootnodes bootstrap a client's initial routing table, they possess no authority over canonical chain selection, state validation, or peer trustworthiness. The security of the discovery process relies entirely on cryptographic verification rather than infrastructure authority.
+- Propagating beacon blocks and validator messages quickly.
+- Running fork choice and finality logic.
+- Syncing beacon data structures with consensus-specific rules.
 
-**1. Protocol-Level Verification (RLPx & ENR)**
-After obtaining a list of potential peers from a bootnode, the client independently verifies each connection. This involves a cryptographic handshake via the RLPx transport protocol. The client validates the peer's identity using their public key (embedded in the `enode://` URL or ENR) and establishes an encrypted session. **If a bootnode acts maliciously and serves Sybil nodes, the client's consensus layer will still reject invalid blocks based on standard protocol rules.**
+This separation helps in several ways:
 
-**2. Node Discovery Protocol (DiscV5)**
-Modern Ethereum clients utilize Node Discovery Protocol v5 (DiscV5), which is based on a Kademlia-like distributed hash table (DHT). Bootnodes merely provide the initial entry points into this DHT. Once a client successfully connects to a few healthy peers, it recursively queries the network to populate its own routing table, effectively rendering the bootnodes obsolete for that session.
+- Clear responsibility boundaries: each layer validates what it owns.
+- Faster protocol evolution: consensus and execution networking can improve independently.
+- Better security posture: faults in one layer are less likely to directly collapse the other.
+- Better operational composability: clients from different teams can interoperate through defined interfaces.
 
-**3. DNS-Based Discovery (EIP-1459) vs. Hardcoded Seeds**
-Relying solely on static `enode://` lists (like those historically hardcoded in client source code, e.g., `bootnodes.go`) presents maintenance overhead and single points of failure. To mitigate this, clients now utilize **Authenticated DNS-based Peer Discovery**. Client developers maintain cryptographically signed DNS trees containing active peer lists.
+The bridge between them is local coordination via the Engine API, not shared internet-facing peer traffic.
 
-**Operational Best Practices for Infrastructure Resilience:**
-When configuring node deployments, treat bootnodes as ephemeral, redundant starting points:
+## Discovery Fundamentals: How Nodes Find Peers
 
-* **Diversify Discovery Vectors:** Combine hardcoded client defaults, DNS discovery (`--discovery.dns`), and custom bootnodes to prevent eclipse attacks.
-* **Avoid Single Points of Failure:** Never rely on a single public endpoint as your only bootstrap path.
-* **Expect Ephemerality:** Public bootnode IPs and ENRs change frequently due to infrastructure rotation. Rely on DNS discovery trees for automatic updates.
+Before nodes can exchange useful data, they must discover each other. Discovery is a distinct stage from full peer session communication.
 
-**Configuration Example:**
-To explicitly define custom bootnodes alongside default discovery methods, use the following flag, ensuring the `<node ID>` matches the SECP256K1 public key of the target node:
+Common discovery concepts include:
 
-```bash
-geth --bootnodes "enode://<node ID>@<IP address>:<port>"
+- Bootnodes: known entry points used to find initial peers.
+- ENR (Ethereum Node Record): a signed record format containing identity and endpoint metadata.
+- Discovery protocols: mainly discv4 and discv5.
+- DNS-based discovery: signed DNS trees for distributing discoverable node records at scale.
 
-```
+### Bootnodes
 
-### 2. [DevP2P](https://github.com/ethereum/devp2p)
+Bootnodes are bootstrap helpers. A fresh node contacts one or more bootnodes to get initial peer information. They are not special consensus authorities. Their purpose is introducing nodes to the wider network.
 
-- After discovery, execution clients communicate over the DevP2P stack.
-- DevP2P sits on top of TCP and supports authenticated peer sessions.
-- The stack includes RLPx transport, p2p capability negotiation, and execution sub-protocols such as `eth`.
+Operationally:
 
-### 3. Execution sub-protocols
+- You should use multiple discovery sources, not a single bootnode.
+- Bootnode unavailability should slow discovery, not stop long-term participation.
+- Once a node has an active peer set, reliance on bootnodes decreases.
 
-- Transaction gossip moves pending transactions between nodes.
-- Block propagation uses announcements plus request-response for block bodies/receipts/state data.
-- EL mempool traffic feeds payload construction by proposers/builders, depending on node role and PBS setup.
-- `snap` is widely used for state sync; `les` is legacy/deprecated in most modern mainnet setups.
+### ENR: Ethereum Node Record
 
-## Part 3: Consensus-Layer Networking
+ENR is the preferred node identity/address record format in Ethereum networking contexts. Conceptually, ENR includes:
 
-Consensus clients form a separate P2P network with their own discovery and gossip rules.
+- A cryptographic signature over record content.
+- A sequence number to track updates.
+- Flexible key-value fields for addresses, keys, and protocol metadata.
 
-### 1. Discovery and ENRs
+Why ENR matters:
 
-- Consensus clients also use discv5 over UDP to find peers.
-- Their ENRs include consensus-specific metadata such as the node’s public key, network addresses, and fork/version data.
+- It is update-friendly via sequence numbers.
+- It supports extensible metadata without redesigning the format.
+- It helps peers advertise capabilities and network-relevant parameters.
 
-### 2. libp2p networking
+Consensus clients also use ENR with consensus-specific fields (for example fork-related and subnet-related metadata), allowing peers to avoid mismatched network participation.
 
-- After discovery, consensus clients communicate over libp2p.
-- This stack replaces the older DevP2P-style approach for consensus networking.
-- The consensus layer uses libp2p for both gossip and request-response traffic (for example gossipsub + RPC-style methods).
+### discv4 and discv5
 
-### 3. Gossip and request-response
+Ethereum discovery follows Kademlia-inspired distributed hash table ideas, where node identity distance (not geography) drives lookup structure.
 
-- Gossip is used for beacon blocks, attestations, exits, and slashings.
-- Request-response is used for targeted retrieval (for example specific blocks, blob sidecars where applicable, and other sync objects).
-- Encodings and validation rules are SSZ-based in the beacon stack so peers can verify data deterministically.
+discv4:
 
-## Part 4: Connecting the Two Clients
+- Widely used historically in execution-layer contexts.
+- Uses UDP-based query flows for peer discovery.
+- Supports bonding-style exchanges and neighbor lookups.
 
-Execution and consensus clients run in parallel, but they must coordinate locally.
+discv5:
 
-- The consensus client tells the execution client when it needs to build or validate a block.
-- The execution client returns execution payloads and validation data.
-- The two clients communicate through a local RPC interface, commonly referred to as the [Engine API](https://github.com/ethereum/execution-apis/blob/main/src/engine/common.md).
+- Newer protocol with improved design for extensibility and topic/capability signaling.
+- Used broadly in consensus discovery and increasingly in execution contexts.
+- Better aligned with modern discovery needs across client ecosystems.
 
-Core Engine API flow is centered on fork-choice and payload validity:
+Why discovery uses UDP:
 
-- CL sends fork-choice updates and payload attributes to EL.
-- EL validates submitted payloads and returns payload status, and for build flows returns locally built execution payload data through `getPayload` methods.
-- CL uses EL validity results to continue fork-choice and finalization progression.
+- Discovery traffic is small and bursty.
+- UDP avoids heavier connection management overhead.
+- Full session reliability and richer messaging are handled later by transport stacks over TCP-based channels.
 
-This division keeps responsibilities clear:
+### DNS-Based Discovery
 
-- Execution clients handle transaction execution, EL state, and EL gossip/request-response.
-- Consensus clients handle beacon gossip, validator duties, fork-choice, and finalization.
+DNS-based discovery provides signed, updateable peer lists via DNS trees. It complements direct node-table lookups and hardcoded seeds.
 
-## Part 5: Why This Design Matters
+Practical benefits:
 
-- It separates transaction propagation from consensus propagation.
-- It lets each layer use the protocol stack best suited to its job.
-- It improves scalability by keeping discovery, gossip, and request-response traffic organized.
-- It reduces trust assumptions by requiring authenticated communication between peers and between the two client types.
+- Faster rotation of discovery endpoints.
+- Easier distribution of up-to-date records.
+- Reduced need to hardcode large static lists in client binaries.
 
-## Part 6: Operational Notes
+Security implication:
 
-- Keep peer diversity high to reduce eclipse risk.
-- Keep clocks, ports, and client versions in sync with network requirements.
-- Monitor peer count, propagation latency, and connection stability.
-- Use the correct discovery and networking settings for the client pair you run.
+- DNS discovery should be authenticated and treated as one input among several.
+- A healthy node should still maintain peer diversity and avoid over-trusting a single discovery channel.
 
-## Part 7: Summary
+## Transport and Protocol Stacks
 
-Ethereum networking is not a single network but two coordinated peer-to-peer systems: one for EL transaction/block propagation and one for CL beacon/validator communication. Discovery, gossip, request-response, and local EL-CL Engine API coordination work together to keep the chain synchronized and secure.
+After discovery, nodes establish ongoing communication channels. Execution and consensus layers use different stacks.
+
+## Execution Layer Stack: DevP2P and RLPx
+
+Execution clients commonly rely on the DevP2P ecosystem.
+
+Key components:
+
+- **RLPx transport/session protocol:** Handles authenticated handshake and secure channel establishment between peers. Uses RLP-based framing and protocol negotiation mechanisms, and supports ongoing session maintenance.
+- **DevP2P capability model:** Peers exchange supported protocol capabilities, and shared capabilities determine which subprotocols are used in a session.
+- **Execution subprotocol traffic:** Transaction propagation and execution-data exchange happen through agreed subprotocol behavior.
+
+In high-level terms, discovery gets you addresses and candidate peers; RLPx and DevP2P create authenticated, persistent peer sessions for execution-layer data exchange.
+
+## Consensus Layer Stack: libp2p and gossipsub
+
+Consensus clients use a different communication stack centered on libp2p.
+
+Key components:
+
+- **libp2p peer transport and multiplexing:** Provides secure channels and stream management, with protocol IDs for structured peer communication.
+- **gossipsub:** Pub-sub style gossip protocol used for rapidly spreading consensus-critical messages; topic-driven dissemination helps constrain and organize traffic.
+- **Request-response protocols:** Used for targeted retrieval of specific beacon objects or ranges during sync and recovery paths.
+
+Consensus networking is optimized around timeliness and correctness of validator-relevant data, with gossip and request-response used for different workloads.
+
+## Gossip vs Request-Response: Two Communication Patterns
+
+Ethereum uses both patterns heavily, but for different reasons.
+
+### Gossip Pattern
+
+Gossip is one-to-many dissemination. A node relays information to peers, which relay further.
+
+Use cases:
+
+- Execution layer: pending transaction propagation.
+- Consensus layer: beacon block proposals, attestations, slashings, exits, and related control signals.
+
+Strengths:
+
+- Fast network-wide spread.
+- Good for information many participants need quickly.
+- Robust under normal churn because there is no single requester bottleneck.
+
+Tradeoffs:
+
+- Potential duplicate traffic.
+- Needs validation/filtering to resist spam.
+- Requires careful topic and scoring logic on consensus side.
+
+Realistic example:
+A wallet submits a transaction to one execution node. That node validates basic format/policy and gossips it. Peers that accept it relay onward. Soon many execution nodes have the transaction in local pools before block inclusion.
+
+### Request-Response Pattern
+
+Request-response is one-to-one retrieval of specific objects.
+
+Use cases:
+
+- Consensus sync: request a range of beacon blocks.
+- Consensus backfill: request data tied to specific roots.
+- Execution synchronization/data acquisition flows where specific objects are missing.
+
+Strengths:
+
+- Efficient when you know exactly what data you need.
+- Lower unnecessary broadcast overhead.
+- Better fit for historical sync and gap-filling.
+
+Tradeoffs:
+
+- Depends on responsive peers.
+- Can be slower for broad urgent dissemination.
+- Requires retry/fallback behavior for robustness.
+
+Realistic example:
+A consensus node receives a beacon block reference but lacks some related data needed to complete local processing. It issues targeted requests to peers for missing objects rather than gossiping a broad network query.
+
+## High-Level Propagation Flow: From Transaction to Consensus Inclusion
+
+The full Ethereum path spans both networks plus local client coupling.
+
+### Stage 1: Transaction enters execution network
+
+- A user submits a transaction through an RPC endpoint to an execution client.
+- The execution client verifies transaction validity at policy/protocol checks.
+- The transaction is added to local pending pool if acceptable.
+- The execution node gossips the transaction to execution peers.
+- Other execution peers repeat validation and onward relay.
+
+### Stage 2: Block building opportunity appears on consensus side
+
+- Consensus protocol determines proposer duties for a given slot.
+- The proposer-side consensus client coordinates locally with its paired execution client.
+- Through Engine API calls, the consensus client requests payload construction parameters and obtains an execution payload candidate.
+
+### Stage 3: Payload and beacon block assembly
+
+- Execution client selects and executes transactions for the payload candidate according to local mempool/state view and protocol rules.
+- Execution client returns payload data and status interfaces through Engine API methods.
+- Consensus client embeds execution payload into beacon block structure and signs/broadcasts according to consensus rules.
+
+### Stage 4: Consensus gossip dissemination
+
+- The proposed beacon block is gossiped over consensus network topics.
+- Other consensus nodes perform consensus-level checks and execution-payload validation workflows via their own local execution clients.
+- Validators produce and gossip attestations indicating their view.
+- Fork-choice updates and cumulative attestations drive head selection and, over time, finality progression.
+
+This flow shows why two P2P networks are necessary:
+
+- Execution gossip efficiently distributes raw transaction demand.
+- Consensus gossip efficiently distributes proposal and attestation signals that decide canonical chain progression.
+- Local Engine API coupling ensures both views remain coherent on each node pair.
+
+## Engine API and the Local Trust Boundary
+
+Engine API is the standardized local interface between consensus and execution clients on the same node setup.
+
+Its role includes:
+
+- Passing fork-choice related updates from consensus to execution.
+- Requesting or submitting execution payloads.
+- Returning payload validity/status information from execution back to consensus.
+
+Important boundary properties:
+
+- Engine API is intended for local, trusted communication between paired clients.
+- It is not a public internet peer protocol.
+- Exposing Engine API insecurely broadens attack surface significantly.
+
+Think of Engine API as a control-and-validation seam:
+
+- Consensus decides what should be considered for canonical progression.
+- Execution decides whether payload state transitions are valid.
+- Neither can safely replace the other's role.
+
+## Security and Operational Considerations
+
+The networking layer is resilient only when operated with healthy peer and client diversity and disciplined configuration.
+
+### Eclipse Resistance and Peer Diversity
+
+Eclipse attacks attempt to isolate a node behind adversarial peers.
+
+Reduce risk by:
+
+- Maintaining sufficient peer counts.
+- Using multiple discovery sources.
+- Avoiding over-reliance on a single ASN, region, or operator set.
+- Periodically refreshing peers and avoiding sticky monocultures.
+
+### Client Diversity
+
+Running different client implementations across the ecosystem reduces correlated failure risk.
+
+Operationally:
+
+- Avoid large homogeneous fleets of one client type/version when possible.
+- Keep both execution and consensus clients updated to supported releases.
+- Monitor release notes for networking and compatibility changes.
+
+### Latency and Propagation Health
+
+Consensus performance is sensitive to message timing.
+
+Watch for:
+
+- Slow beacon block propagation.
+- Delayed attestation dissemination.
+- High peer churn or unstable connections.
+
+Good practice:
+
+- Deploy with low-latency connectivity.
+- Monitor propagation and peer metrics.
+- Investigate persistent geographic or routing bottlenecks.
+
+### Clock Synchronization
+
+Consensus timing depends on slot-based scheduling. Clock skew can degrade participation and validation behavior.
+
+Use:
+
+- Reliable time synchronization (for example disciplined NTP).
+- Alerting on clock drift.
+- Regular host-time sanity checks in validator infrastructure.
+
+### Versioning and Fork Awareness
+
+Nodes must follow the correct network/fork rules.
+
+Ensure:
+
+- Execution and consensus clients are on compatible protocol versions.
+- Fork schedules and client updates are applied ahead of activation windows.
+- Discovery metadata and peer selection align with the intended network and fork context.
+
+## Practical Mental Model
+
+A useful mental model is a two-plane system:
+
+- **Data-demand plane (execution network):** Spreads pending transactions and serves execution-side data exchange needs.
+- **Consensus-decision plane (consensus network):** Spreads proposed blocks and validator votes that determine chain head and finality.
+
+Then add a local coupling seam:
+
+- **Engine API:** Converts consensus intent into execution checks/building and returns execution validity back to consensus.
+
+If any one part is weak, the node is operationally fragile:
+
+- Weak execution peering can starve payload quality.
+- Weak consensus peering can miss timely head updates.
+- Weak local coupling can break block processing entirely.
+
+## Short Glossary
+
+- **Execution Layer:** Ethereum component responsible for transaction execution and state transition logic.
+- **Consensus Layer:** Ethereum component responsible for block proposal coordination, fork choice, and finality.
+- **ENR (Ethereum Node Record):** Signed, sequence-numbered node metadata record used in discovery.
+- **Bootnode:** Discovery seed node that helps a new node find initial peers.
+- **discv4 / discv5:** UDP-based peer discovery protocols used in Ethereum networking.
+- **DevP2P:** Execution-layer peer protocol suite for post-discovery communication.
+- **RLPx:** Secure session transport/handshake protocol used with DevP2P in execution networking.
+- **libp2p:** Modular peer networking framework used by consensus clients.
+- **gossipsub:** Pub-sub gossip protocol used in consensus networking for rapid topic-based dissemination.
+- **Request-response:** One-to-one retrieval pattern for specific data objects.
+- **Engine API:** Local interface between consensus and execution clients for payload building and validation coordination.
+- **Eclipse attack:** Network attack where a node is isolated and surrounded by adversarial peers.
+
+## Closing Summary
+
+Ethereum networking is intentionally split into execution and consensus systems because they solve different problems under different constraints. Discovery mechanisms such as ENR, discv4/discv5, bootnodes, and DNS-based methods help nodes find peers. After discovery, execution traffic uses DevP2P and RLPx, while consensus traffic uses libp2p with gossipsub plus request-response protocols.
+
+Gossip provides rapid network-wide dissemination for urgent shared data; request-response provides efficient targeted retrieval for synchronization and recovery. The end-to-end path from transaction broadcast to block proposal and attestation spans both P2P networks and depends on correct local coordination through Engine API.
+
+For operators and developers, reliable participation is less about any single protocol detail and more about balanced networking hygiene: diverse peers, diverse clients, sound time sync, low latency, and disciplined version management.

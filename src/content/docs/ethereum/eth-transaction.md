@@ -5,13 +5,13 @@ description: A guide to Ethereum block structure, transaction fields, and lifecy
 
 # Ethereum Transaction types
 
-| Type Identifier | Name                  | Pros                                                  |
-| --------------- | --------------------- | ----------------------------------------------------- |
-| Legacy (pre-2718) | Untyped RLP transactions | Often shown as `type: 0x0` in RPC responses.       |
-| `0x01`          | EIP-2930 transactions | Access lists can reduce first-touch gas uncertainty.  |
-| `0x02`          | EIP-1559 transactions | Predictable fees with base fee plus adjustable tip.   |
-| `0x03`          | EIP-4844 transactions | Much cheaper blob data for rollup data availability.  |
-| `0x04`          | EIP-7702 transactions | Adds delegation-based execution capability to EOAs under EIP-7702 rules. |
+| Type Identifier   | Name                     | Pros                                                                     |
+| ----------------- | ------------------------ | ------------------------------------------------------------------------ |
+| Legacy (pre-2718) | Untyped RLP transactions | Often shown as `type: 0x0` in RPC responses.                             |
+| `0x01`            | EIP-2930 transactions    | Access lists can reduce first-touch gas uncertainty.                     |
+| `0x02`            | EIP-1559 transactions    | Predictable fees with base fee plus adjustable tip.                      |
+| `0x03`            | EIP-4844 transactions    | Much cheaper blob data for rollup data availability.                     |
+| `0x04`            | EIP-7702 transactions    | Adds delegation-based execution capability to EOAs under EIP-7702 rules. |
 
 
 
@@ -59,7 +59,7 @@ An Ethereum transaction is a signed message that requests value transfer or cont
 | gasPrice             | Legacy fee per gas unit                               | Used in legacy tx type                         |
 | maxPriorityFeePerGas | Max tip per gas to validator                          | Incentivizes faster inclusion                  |
 | maxFeePerGas         | Max total fee per gas sender accepts                  | Caps worst-case fee in EIP-1559                |
-| sender + signature   | ECDSA signature over tx payload                       | Proves authorization and derives sender        |
+| sender + signature   | ECDSA signature over tx payload (v,r,s)               | Proves authorization and derives sender        |
 
 [Gas document](https://ethereum.org/developers/docs/gas/)
 

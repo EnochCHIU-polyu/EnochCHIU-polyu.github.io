@@ -8,16 +8,12 @@ Ethereum accounts are identified by 20-byte addresses.
 
 In the Ethereum execution state, each account has four canonical fields:
 
-- `nonce`
-- `balance`
-- `storageRoot`
-- `codeHash`
-
-Notes:
-
-- `nonce`: for EOAs, number of transactions sent; for contract accounts, number of contracts created via `CREATE`.
-- `storageRoot`: root hash of the contract storage trie (empty trie root for EOAs).
-- `codeHash`: hash of account bytecode (empty code hash for EOAs).
+| Field         | Description                                                                                                     |
+| ------------- | --------------------------------------------------------------------------------------------------------------- |
+| `nonce`       | For EOAs, the number of transactions sent; for contract accounts, the number of contracts created via `CREATE`. |
+| `balance`     | The amount of ETH held by the account.                                                                          |
+| `storageRoot` | The root hash of the contract storage trie; for EOAs, this is the empty trie root.                              |
+| `codeHash`    | The hash of the account bytecode; for EOAs, this is the empty code hash.                                        |
 
 ## Part 2: Account Types
 
