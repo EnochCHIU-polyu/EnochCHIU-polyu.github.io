@@ -1,7 +1,19 @@
 # General
+
 add references
 
 https://www.ethereum-blockchain-developer.com/
+
+
+- [x] tx data structure, data struc`ture in general. Consistent format like table
+- [x] RPC node, Builder, Announcer?
+- [x] PRC -> RPC
+- [x] review doc and reader should not raise questions (e.g. EL, CL, find in pool consistency)
+- [ ] smart contract access control?
+- [ ] ERC20 minting?
+- [ ] slide 49, store large account data, split in evm or smart contract (with libraries)?
+- [ ] sample NFT smart contract source code
+- [x] https://enochchiu-polyu.github.io/ethereum/eth-transaction-code/#1-end-to-end-pipeline => mermaid?
 
 
 # Improvement

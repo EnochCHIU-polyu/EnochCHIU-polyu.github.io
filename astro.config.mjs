@@ -1,11 +1,9 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
-import { unified } from '@astrojs/markdown-remark';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 
-// https://astro.build/config
 export default defineConfig({
 	integrations: [
 		starlight({
@@ -14,6 +12,30 @@ export default defineConfig({
 			customCss: ['./src/styles/custom.css'],
 			// Keep the theme locked to light mode and add a desktop sidebar toggle in the header.
 			head: [
+				{
+					tag: 'script',
+					attrs: { 'is:inline': true, type: 'module' },
+					content: `
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+mermaid.initialize({ startOnLoad: false });
+
+function renderMermaid() {
+  const graphs = document.querySelectorAll('pre code.language-mermaid');
+  
+  graphs.forEach((graph, index) => {
+    const container = document.createElement('div');
+    container.classList.add('mermaid');
+    container.textContent = graph.textContent;
+    graph.parentElement.replaceWith(container);
+  });
+
+  mermaid.run();
+}
+
+document.addEventListener('DOMContentLoaded', renderMermaid);
+document.addEventListener('astro:page-load', renderMermaid);
+`,
+				},
 				{
 					tag: 'script',
 					attrs: { 'is:inline': true },
@@ -49,9 +71,7 @@ export default defineConfig({
 		}),
 	],
 	markdown: {
-		processor: unified({
-			remarkPlugins: [remarkMath],
-			rehypePlugins: [rehypeKatex],
-		}),
+		remarkPlugins: [remarkMath],
+		rehypePlugins: [rehypeKatex],
 	},
 });

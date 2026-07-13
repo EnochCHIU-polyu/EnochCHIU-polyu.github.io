@@ -65,34 +65,13 @@ Typical calls:
 
 In geth, these Engine API handlers are implemented by `ConsensusAPI` in `eth/catalyst/api.go`.
 
-High-level relationship:
-
-```text
-Consensus Layer Client
-Prysm / Lighthouse / Teku / Lodestar / Nimbus
-    |
-    | Engine API
-    v
-Execution Layer Client
-Geth / Nethermind / Besu / Erigon
-```
-
-For this document, Geth should be read as the Execution Layer component. It validates and executes transaction data, while the Consensus Layer determines canonical chain progression and drives payload production/validation through the Engine API.
-
 ---
 
 ## 1. End-to-End Pipeline
 
-```mermaid
-flowchart LR
-    A[RPC or P2P tx input] --> B[ethapi or network handler]
-    B --> C[TxPool admission and validation]
-    C --> D[CL drives EL via Engine API]
-    D --> E[PBS/MEV-Boost payload or local fallback build]
-    E --> F[EVM state transition]
-    F --> G[Receipt and gas accounting]
-    G --> H[Block import re-execution and validation]
-```
+The following integrated flowchart tracks the lifecycle of a transaction from node ingress to canonical-chain validation, explicitly highlighting how the Consensus Layer directs Geth's components.
+
+![tx_code_m](../../../assets/tx_code.png)
 
 How to read this pipeline:
 - Goal: show the transaction's lifecycle from node ingress to canonical-chain validation.
