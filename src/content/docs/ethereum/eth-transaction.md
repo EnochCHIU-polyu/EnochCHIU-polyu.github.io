@@ -67,7 +67,7 @@ An Ethereum transaction is a signed message that requests value transfer or cont
 
 [More detail on gas](/ethereum/eth-gas/)
 
-#### Overview (vanilla block building)
+## Overview (vanilla block building)
 ![overview1](../../../assets/tx_overview_1.png)
 ![overview2](../../../assets/tx_overview_2.png)
 ![overview3](../../../assets/tx_overview_3.png)
@@ -116,7 +116,7 @@ $$
 So the theoretical maximum in this simplified scenario is about **119 TPS**.
 
 
-## Part 3: Transaction Lifecycle
+## Part 3: Transaction flow types
 
 A transaction is a signed, externally originated request to modify execution-layer state.
 
@@ -225,6 +225,56 @@ Normally, every Ethereum interaction requires the sender to hold ETH for gas. Th
 > **ERC-2771** is the industry standard that allows smart contracts to "look past" the Relayer/Forwarder and correctly identify the actual user who authorized the action.
 
 ![ERC2771](../../../assets/tx_relayer.png)
+
+> The Relayer pays the ETH gas fees on-chain to the network. In return, the user can reimburse the Relayer using any ERC-20 token (such as USDC or USDT) either off-chain or via the smart contract. Alternatively, the dApp developers can fully subsidize the cost, providing a completely gasless experience for the user.
+
+### Canonical Flow D: Account Abstraction (ERC-4337)
+
+Account Abstraction (AA) is a paradigm shift that decouples the relationship between an account's signer (the key) and its balance (the ETH), allowing any smart contract to act as a wallet.
+
+#### Core Roles and Details Comparison
+
+| Role                            | Core Responsibility                                      | Key Nuances & Nonce Handling                                                                                                                                 |
+| :------------------------------ | :------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **User**                        | Signs "UserOp" intent to authorize actions.              | **No EOA Nonce.** User doesn't need to hold ETH or manage a seed phrase; can use biometrics (FaceID/TouchID) or social recovery.                             |
+| **SCW (Smart Contract Wallet)** | Verifies user signatures and executes final logic.       | **2D Nonce (Two-Dimensional):** Uses a custom Nonce mechanism independent of the base layer, allowing for parallel (non-blocking) transaction processing.    |
+| **Bundler**                     | Simulates UserOps, bundles them, and pays upfront Gas.   | **Standard EOA Nonce.** Acts as a traditional EOA. Uses a standard incrementing Nonce. Takes the risk of failed Gas if execution fails on-chain.             |
+| **EntryPoint**                  | Global coordinator, security gate, and settlement hub.   | **Stateless Singleton.** The ultimate trust anchor in the AA architecture. Ensures Bundlers are repaid and enforces the order of verification and execution. |
+| **Paymaster**                   | Sponsors Gas fees based on custom logic.                 | **Deposit-based.** Enables "Gasless" UX or paying gas with ERC-20 tokens. Must pre-fund or stake ETH in the EntryPoint as collateral.                        |
+| **Proposer / RPC Node**         | Validates and includes the standard transaction bundles. | **AA-Agnostic.** Only checks the Bundler's signature, base-layer Nonce, and balance. It sees it as a simple call to the EntryPoint bytecode.                 |
+
+
+#### ERC-4337 End-to-End Workflow
+
+**Phase 1: Off-Chain Intent & Bundling**
+1.  **Signing the Intent:** The user signs a **UserOperation (UserOp)** via a dApp. This object describes the "intent" (e.g., "Transfer 50 USDC"). This happens off-chain and requires **zero ETH** from the user.
+2.  **The Alt-Mempool:** The UserOp is sent to a dedicated **Alternative Mempool (Alt-Mempool)** specifically designed for UserOperations.
+3.  **Bundling:** A **Bundler** collects multiple UserOps from the Alt-Mempool, packages them into a single **Standard Ethereum Transaction**, pays the gas fees using its own EOA, and submits it to a standard RPC node.
+
+**Phase 2: Standard On-Chain Processing**
+
+4.  **Block Inclusion:** Standard Ethereum nodes and Proposers treat the Bundler’s transaction like any other EOA-to-Contract call. They verify the Bundler's EOA balance and **Standard Nonce**, then include the bundle in a block.
+
+**Phase 3: EVM-Level Smart Contract Execution**
+
+5.  **Entry Point Invocation:** During block execution, the EVM reads the transaction as a call to the global **EntryPoint** contract's `handleOps` function.
+6.  **Verification Loop:**
+    *   `EntryPoint` calls each user's **Smart Contract Wallet (SCW)** to verify the custom signature (e.g., Passkey, Multi-sig) and an **independent AA Nonce**.
+    *   If specified, it calls a **Paymaster** to confirm the Paymaster is willing to sponsor the gas fees for this UserOp.
+7.  **Execution Loop:** Once verification is complete, the `EntryPoint` calls the SCW again to execute the actual business logic (e.g., the actual USDC transfer).
+8.  **Settlement & Compensation:** The `EntryPoint` calculates the exact gas spent. It deducts the amount from the SCW or the Paymaster's pre-funded deposit and compensates the Bundler in ETH.
+
+![AA Flow 1](../../../assets/aa_tx_1.png)
+![AA Flow 2](../../../assets/aa_tx_2.png)
+![overview 3](../../../assets/tx_overview_3.png)
+![overview 4](../../../assets/tx_overview_4.png)
+
+---
+
+
+
+
+## Part 4: Transaction process
 
 #### Transaction Creation and Propagation
 
@@ -395,7 +445,7 @@ When the block is received by other nodes (or imported locally), the transaction
   
 ---
 
-## Part 4. Summary
+## Part 5. Summary
 
 - Ethereum transaction processing is a layered pipeline: submission -> txpool validation -> network propagation -> block inclusion -> EVM execution -> receipt/state commitment -> block broadcast -> block validation/import -> attestation and fork-choice head update.
 - A transaction can be accepted by RPC but still be queued (nonce gap), deprioritized (fee conditions), or dropped (pool pressure/policy).
