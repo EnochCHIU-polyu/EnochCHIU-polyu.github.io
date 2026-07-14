@@ -168,4 +168,3 @@ contract SimpleEscrow {
 3.  **Visibility**: Mark functions as `external` to save gas.
 4.  **Pull over Push**: Let users withdraw funds rather than auto-sending to prevent DoS.
 
-For a deeper dive into network integration, see the [Ethereum Transaction Pipeline](eth-transaction.md).

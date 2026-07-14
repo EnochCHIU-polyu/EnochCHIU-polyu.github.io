@@ -207,6 +207,25 @@ In modern Ethereum, block processing includes both transactions and protocol-lev
 
 Important: builder/relay/MEV-Boost are out-of-protocol market infrastructure; Ethereum consensus/finality rules remain in CL + EL protocol clients.
 
+### Canonical Flow C: Meta Transactions (Gasless)
+
+A **Meta Transaction** is a pattern where the person who **creates and signs** the transaction is different from the entity that **pays the gas** to submit it to the blockchain.
+
+#### The Problem It Solves
+Normally, every Ethereum interaction requires the sender to hold ETH for gas. This is a significant onboarding hurdle. Meta transactions allow users to interact with dApps **without needing to hold any ETH**.
+
+#### The Technical Flow (ERC-2771)
+
+1.  **Off-chain Signature:** The user signs a message (e.g., "transfer 10 tokens") using their private key. This costs **zero gas** as it happens off-chain.
+2.  **The Relayer:** The user sends this signed message to a **Relayer** (a third-party service).
+3.  **The Broadcast:** The Relayer wraps the signed message in a standard Ethereum transaction, pays the gas fee, and broadcasts it.
+4.  **Forwarder Verification:** A **Forwarder** contract (Standardized by **ERC-2771**) verifies the user's signature.
+5.  **Execution:** If valid, the Forwarder calls the target smart contract. The target contract uses `_msgSender()` to identify the original signer instead of `msg.sender` (which would be the Relayer).
+
+> **ERC-2771** is the industry standard that allows smart contracts to "look past" the Relayer/Forwarder and correctly identify the actual user who authorized the action.
+
+![ERC2771](../../../assets/tx_relayer.png)
+
 #### Transaction Creation and Propagation
 
 - Creation: EOAs (or account-abstraction style user flows that still resolve to valid EL transaction envelopes) create a transaction with nonce, fee settings, recipient, value, and optional calldata, then sign it cryptographically.
@@ -363,14 +382,16 @@ After the proposer signs the block, the **Consensus Layer (CL)** client is respo
 
 When the block is received by other nodes (or imported locally), the transactions are verified again:
 
-* **Header and consensus checks:** Validates parent link, timestamp/slot constraints, block size limits, and consensus metadata.
-* **Transaction integrity checks:** Ensures each transaction encoding/signature is valid and all transaction-root commitments match.
-* **State transition re-execution:** Re-runs transactions in order and verifies nonce, gas accounting, and state updates.
-* **Root and receipt checks:** Confirms computed `stateRoot`, `receiptsRoot`, and `transactionsRoot` match the header claims.
-* **Gas and fee consistency checks:** Verifies `gasUsed`, base-fee rules, and per-tx fee accounting are internally consistent.
-* **Network attestation:** Validators that accept the block attest during slot/epoch voting.
-* **Fork-choice head update:** CL updates local canonical head as attestations accumulate (with EL coordination via fork-choice update flows).
-* **Import decision:** Blocks that fail checks are rejected; valid blocks are imported and become candidates for canonical head/finalization.
+| Check Category            | Validation Logic                                                                                 | Impact if Failure                            |
+| :------------------------ | :----------------------------------------------------------------------------------------------- | :------------------------------------------- |
+| **Header & Consensus**    | Validates parent link, timestamp/slot constraints, block size limits, and consensus metadata.    | Block rejection (consensus violation).       |
+| **Transaction Integrity** | Ensures each transaction encoding/signature is valid and all transaction-root commitments match. | Block rejection (invalid payload).           |
+| **State Transition**      | Re-runs transactions in order; verifies nonces, account balances, and gas accounting.            | Execution failure; block invalidation.       |
+| **Root & Receipts**       | Confirms computed `stateRoot`, `receiptsRoot`, and `transactionsRoot` match header claims.       | State mismatch; block rejection.             |
+| **Gas & Fee Consistency** | Verifies `gasUsed`, EIP-1559 base-fee rules, and per-tx fee accounting are consistent.           | Protocol violation; block rejection.         |
+| **Network Attestation**   | Validators that accept the block attest during slot/epoch voting to signal validity.             | Failure to reach finality/canonical status.  |
+| **Fork-Choice Update**    | CL updates local canonical head as attestations accumulate (with EL coordination).               | Node stays on incorrect/old chain fork.      |
+| **Import Decision**       | Valid blocks become candidates for canonical head; failed blocks are immediately dropped.        | Node maintains synchronization with network. |
   
 ---
 
