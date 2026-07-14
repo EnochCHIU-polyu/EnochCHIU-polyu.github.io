@@ -232,17 +232,43 @@ Normally, every Ethereum interaction requires the sender to hold ETH for gas. Th
 
 Account Abstraction (AA) is a paradigm shift that decouples the relationship between an account's signer (the key) and its balance (the ETH), allowing any smart contract to act as a wallet.
 
-#### Core Roles and Details Comparison
+#### [](#the-useroperation-structure)The `UserOperation` structure
+| Field                           | Type      | Description                                                                                           |
+| ------------------------------- | --------- | ----------------------------------------------------------------------------------------------------- |
+| `sender`                        | `address` | The Account making the `UserOperation`                                                                |
+| `nonce`                         | `uint256` | Anti-replay parameter (see “Semi-abstracted Nonce Support” )                                          |
+| `factory`                       | `address` | Account Factory for new Accounts OR `0x7702` flag for EIP-7702 Accounts, otherwise `address(0)`       |
+| `factoryData`                   | `bytes`   | data for the Account Factory if `factory` is provided OR EIP-7702 initialization data, or empty array |
+| `callData`                      | `bytes`   | The data to pass to the `sender` during the main execution call                                       |
+| `callGasLimit`                  | `uint256` | The amount of gas to allocate the main execution call                                                 |
+| `verificationGasLimit`          | `uint256` | The amount of gas to allocate for the verification step                                               |
+| `preVerificationGas`            | `uint256` | Extra gas to pay the bundler                                                                          |
+| `maxFeePerGas`                  | `uint256` | Maximum fee per gas (similar to [EIP-1559](/EIPS/eip-1559) `max_fee_per_gas`)                         |
+| `maxPriorityFeePerGas`          | `uint256` | Maximum priority fee per gas (similar to EIP-1559 `max_priority_fee_per_gas`)                         |
+| `paymaster`                     | `address` | Address of paymaster contract, (or empty, if the `sender` pays for gas by itself)                     |
+| `paymasterVerificationGasLimit` | `uint256` | The amount of gas to allocate for the paymaster validation code (only if paymaster exists)            |
+| `paymasterPostOpGasLimit`       | `uint256` | The amount of gas to allocate for the paymaster post-operation code (only if paymaster exists)        |
+| `paymasterData`                 | `bytes`   | Data for paymaster (only if paymaster exists)                                                         |
+| `signature`                     | `bytes`   | Data passed into the `sender` to verify authorization                                                 |
 
-| Role                            | Core Responsibility                                      | Key Nuances & Nonce Handling                                                                                                                                 |
-| :------------------------------ | :------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **User**                        | Signs "UserOp" intent to authorize actions.              | **No EOA Nonce.** User doesn't need to hold ETH or manage a seed phrase; can use biometrics (FaceID/TouchID) or social recovery.                             |
-| **SCW (Smart Contract Wallet)** | Verifies user signatures and executes final logic.       | **2D Nonce (Two-Dimensional):** Uses a custom Nonce mechanism independent of the base layer, allowing for parallel (non-blocking) transaction processing.    |
-| **Bundler**                     | Simulates UserOps, bundles them, and pays upfront Gas.   | **Standard EOA Nonce.** Acts as a traditional EOA. Uses a standard incrementing Nonce. Takes the risk of failed Gas if execution fails on-chain.             |
-| **EntryPoint**                  | Global coordinator, security gate, and settlement hub.   | **Stateless Singleton.** The ultimate trust anchor in the AA architecture. Ensures Bundlers are repaid and enforces the order of verification and execution. |
-| **Paymaster**                   | Sponsors Gas fees based on custom logic.                 | **Deposit-based.** Enables "Gasless" UX or paying gas with ERC-20 tokens. Must pre-fund or stake ETH in the EntryPoint as collateral.                        |
-| **Proposer / RPC Node**         | Validates and includes the standard transaction bundles. | **AA-Agnostic.** Only checks the Bundler's signature, base-layer Nonce, and balance. It sees it as a simple call to the EntryPoint bytecode.                 |
+---
+#### [](#entrypoint-interface)`EntryPoint` interface
 
+When passed on-chain, to the `EntryPoint` contract, the `Account` and the `Paymaster`, a “packed” version of the above structure called `PackedUserOperation` is used:
+
+| Field                | Type      | Description                                                                                                           |
+| -------------------- | --------- | --------------------------------------------------------------------------------------------------------------------- |
+| `sender`             | `address` |                                                                                                                       |
+| `nonce`              | `uint256` |                                                                                                                       |
+| `initCode`           | `bytes`   | concatenation of factory address and factoryData (or empty), or [EIP-7702 data](#support-for-eip-7702-authorizations) |
+| `callData`           | `bytes`   |                                                                                                                       |
+| `accountGasLimits`   | `bytes32` | concatenation of verificationGasLimit (16 bytes) and callGasLimit (16 bytes)                                          |
+| `preVerificationGas` | `uint256` |                                                                                                                       |
+| `gasFees`            | `bytes32` | concatenation of maxPriorityFeePerGas (16 bytes) and maxFeePerGas (16 bytes)                                          |
+| `paymasterAndData`   | `bytes`   | concatenation of paymaster fields (or empty)                                                                          |
+| `signature`          | `bytes`   |                                                                                                                       |
+
+For more information, please reference [EIP4337](https://eips.ethereum.org/EIPS/eip-4337)
 
 #### ERC-4337 End-to-End Workflow
 
@@ -269,8 +295,16 @@ Account Abstraction (AA) is a paradigm shift that decouples the relationship bet
 ![overview 3](../../../assets/tx_overview_3.png)
 ![overview 4](../../../assets/tx_overview_4.png)
 
----
+#### Core Roles and Details Comparison
 
+| Role                            | Core Responsibility                                      | Key Nuances & Nonce Handling                                                                                                                                 |
+| :------------------------------ | :------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **User**                        | Signs "UserOp" intent to authorize actions.              | **No EOA Nonce.** User doesn't need to hold ETH or manage a seed phrase; can use biometrics (FaceID/TouchID) or social recovery.                             |
+| **SCW (Smart Contract Wallet)** | Verifies user signatures and executes final logic.       | **2D Nonce (Two-Dimensional):** Uses a custom Nonce mechanism independent of the base layer, allowing for parallel (non-blocking) transaction processing.    |
+| **Bundler**                     | Simulates UserOps, bundles them, and pays upfront Gas.   | **Standard EOA Nonce.** Acts as a traditional EOA. Uses a standard incrementing Nonce. Takes the risk of failed Gas if execution fails on-chain.             |
+| **EntryPoint**                  | Global coordinator, security gate, and settlement hub.   | **Stateless Singleton.** The ultimate trust anchor in the AA architecture. Ensures Bundlers are repaid and enforces the order of verification and execution. |
+| **Paymaster**                   | Sponsors Gas fees based on custom logic.                 | **Deposit-based.** Enables "Gasless" UX or paying gas with ERC-20 tokens. Must pre-fund or stake ETH in the EntryPoint as collateral.                        |
+| **Proposer / RPC Node**         | Validates and includes the standard transaction bundles. | **AA-Agnostic.** Only checks the Bundler's signature, base-layer Nonce, and balance. It sees it as a simple call to the EntryPoint bytecode.                 |
 
 
 
