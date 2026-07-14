@@ -64,6 +64,7 @@ document.addEventListener('astro:page-load', renderMermaid);
 						{ label: 'Gas', link: '/ethereum/eth-gas/' },
 						{ label: 'Proof of Stake', link: '/ethereum/eth-pos/' },
 						{ label: 'Stake pooling', link: '/ethereum/eth-stakepooling/' },
+						{ label: 'Solidity', link: '/ethereum/solidity/' },
 						{ label: 'Transaction with Go code', link: '/ethereum/eth-transaction-code/' },
 					],
 				},

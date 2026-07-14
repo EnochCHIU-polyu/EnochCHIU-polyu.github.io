@@ -14,6 +14,8 @@ https://www.ethereum-blockchain-developer.com/
 - [ ] slide 49, store large account data, split in evm or smart contract (with libraries)?
 - [ ] sample NFT smart contract source code
 - [x] https://enochchiu-polyu.github.io/ethereum/eth-transaction-code/#1-end-to-end-pipeline => mermaid?
+- [ ] consence panolity
+- [ ] transaction for the non wallet tx, thounght org, cross chain
 
 
 # Improvement
@@ -57,3 +59,8 @@ https://www.ethereum-blockchain-developer.com/
 # Reference 
 
 https://leesei.github.io/posts/blockchain
+
+
+https://eips.ethereum.org/EIPS/eip-4337
+https://eips.ethereum.org/EIPS/eip-7702
+https://eip7702.io/

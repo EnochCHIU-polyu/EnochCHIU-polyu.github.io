@@ -1,5 +1,5 @@
 ---
-title: Transaction Processing
+title: Transaction Flow
 description: A guide to Ethereum block structure, transaction fields, and lifecycle.
 ---
 
@@ -120,16 +120,10 @@ So the theoretical maximum in this simplified scenario is about **119 TPS**.
 
 A transaction is a signed, externally originated request to modify execution-layer state.
 
-```text
-world state sigma_t
-    |
-    | apply block b = [T1, T2, T3]
-    v
-world state sigma_t+1
-    |
-    | apply block b+1 = [T4, T5, T6]
-    v
-world state sigma_t+2
+```mermaid
+flowchart TD
+  A[world state sigma_t] -->|"apply block b = (T1, T2, T3)"| B[world state sigma_t+1]
+  B -->|"apply block b+1 = (T4, T5, T6)"| C[world state sigma_t+2]
 ```
 
 State transition function (conceptual):
