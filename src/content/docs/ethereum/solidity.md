@@ -1,83 +1,171 @@
 ---
 title: Solidity
-description: A comprehensive guide to Solidity, the primary programming language for Ethereum smart contracts.
+description: A strategic guide to Solidity development, covering architecture, data structures, and security patterns for enterprise dApps.
 ---
 
-Solidity is a high-level, contract-oriented, statically-typed programming language designed for developing smart contracts that run on the Ethereum Virtual Machine (EVM). Influenced by C++, Python, and JavaScript, it is the most widely used language for implementing logic on decentralized applications (dApps).
+Solidity is the primary high-level language for developing smart contracts on the Ethereum Virtual Machine (EVM). From a technical strategy perspective, Solidity isn't just a programming language; it is a tool for defining **deterministic business logic** in a trustless environment.
 
-## What is Solidity?
+## Architectural Fundamentals
 
-Solidity is the primary language used to build the logic of the Ethereum network. It allows developers to write self-executing code that governs the behavior of accounts within the Ethereum state. These "smart contracts" can handle anything from simple token transfers (ERC-20) to complex decentralized autonomous organizations (DAOs).
+Solidity is contract-oriented and statically typed. Its execution environment—the EVM—imposes unique constraints, particularly regarding **Gas optimization** and **Persistence**.
 
 ### Key Characteristics
+- **Deterministic Execution**: Every node in the network must arrive at the same state transition.
+- **Gas Awareness**: Every operation carries a cost. Efficient code reduces operational overhead (OpEx) for users.
+- **EVM Target**: Compiles down to low-level bytecode executed by the global network of nodes.
+- **Inheritance & Polymorphism**: Supports modular design patterns through interfaces and multiple inheritance.
 
-- **Statically Typed**: Every variable's type (e.g., `uint256`, `address`, `bool`) must be specified at compile-time, reducing runtime errors.
-- **Contract-Oriented**: The syntax is built around the `contract` keyword, similar to `class` in object-oriented languages, encapsulating data and functions.
-- **Inheritance**: Supports multiple inheritance, allowing developers to extend functionality from existing contracts (e.g., OpenZeppelin's standard templates).
-- **Libraries**: Enables the creation of reusable code units that can be called by other contracts without being deployed as standalone entities.
-- **Complex User-Defined Types**: Supports `structs` and `enums` for organizing complex data structures.
+## Data Structures & Storage Strategy
 
-## The Compilation Process
+Choosing the right data location is critical for both performance and cost.
 
-Before a Solidity contract can run on the Ethereum blockchain, it must undergo a compilation process:
+| Category | Type | Description | Data Location | Strategic Use Case |
+| :--- | :--- | :--- | :--- | :--- |
+| **Value Types** | `uint256` / `int` | 256-bit integers. | Stack / Memory | Financial balances, counters. |
+| | `address` | 20-byte account ID. | Stack / Memory | Identifying owners or contracts. |
+| | `bool` | `true` or `false`. | Stack / Memory | Status flags, logic gates. |
+| | `enum` | Discrete states. | Stack / Memory | State machines (e.g. Open/Closed). |
+| **Reference Types**| `mapping` | Key-value hash map. | Storage | Large-scale lookups (Balances). |
+| | `struct` | Custom groupings. | Storage/Mem | Entities (e.g. Asset details). |
+| | `array` | Fixed/Dynamic lists. | Storage/Mem | Iteration or ordered data. |
+| | `string` / `bytes`| Dynamic byte arrays. | Storage/Mem | UTF-8 text or raw data. |
 
-1.  **Source Code (`.sol`)**: The human-readable code written by the developer.
-2.  **Solidity Compiler (`solc`)**: Translates the source code into two primary outputs:
-    -   **Bytecode**: The low-level machine code that the Ethereum Virtual Machine (EVM) executes.
-    -   **Application Binary Interface (ABI)**: A JSON-formatted interface that allows external applications (like frontend websites using Ethers.js) to interact with the contract.
-3.  **Deployment**: The bytecode is sent to the Ethereum network via a transaction, where it is assigned a permanent address.
+> **Strategy Note:** Minimize `Storage` writes. Writing to the blockchain state is the most expensive operation in the EVM. Use `Memory` for intermediate calculations.
 
-## Basic Syntax Example: Simple Storage
+---
 
-Below is a simple example of a "Storage" contract that allows a user to store and retrieve a single number.
+## Modifiers & Access Control
+
+Modifiers are used to change the behavior of functions in a declarative way. They are essential for security and validating pre-conditions.
+
+### Basic Modifier
+The `_` (underscore) symbol tells the compiler to execute the rest of the function body.
 
 ```solidity
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+modifier onlyEven(uint256 _val) {
+    require(_val % 2 == 0, "Not an even number");
+    _; // Main function body runs here
+}
+```
 
-contract SimpleStorage {
-    // State variable stored on the blockchain
-    uint256 private storedData;
+### Access Control with OpenZeppelin
+In production, we use industry-standard libraries like **OpenZeppelin** to handle security. The `Ownable` contract provides basic authorization via the `onlyOwner` modifier.
 
-    // Event to log data changes
-    event DataStored(address indexed user, uint256 value);
+```solidity
+import "@openzeppelin/contracts/access/Ownable.md";
 
-    // Function to update the stored data
-    function set(uint256 x) public {
-        storedData = x;
-        emit DataStored(msg.sender, x);
-    }
+contract SecureVault is Ownable {
+    constructor() Ownable(msg.sender) {}
 
-    // Function to retrieve the stored data
-    function get() public view returns (uint256) {
-        return storedData;
+    // The 'onlyOwner' modifier restricts access to the admin
+    function emergencyShutdown() public onlyOwner {
+        // ... logic
     }
 }
 ```
 
-## Important Concepts
+### Role-Based Access Control (RBAC)
+For enterprise solutions, `AccessControl` allows for multiple roles (e.g., Admin, Auditor, Minter).
 
-### State Variables
-Variables defined at the contract level that are permanently stored in contract storage on the blockchain. Modifying these variables costs "gas."
+```solidity
+import "@openzeppelin/contracts/access/AccessControl.md";
 
-### Functions
-The executable units of code. They can be `public`, `private`, `internal`, or `external`. 
-- **View/Pure Functions**: Functions that do not modify the state. `view` reads from state; `pure` does neither read nor write.
+contract ManagedContract is AccessControl {
+    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
-### Modifiers
-Used to change the behavior of functions in a declarative way, such as checking for authorization (`onlyOwner`) or validating inputs before execution.
+    constructor() {
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    }
 
-### Events
-Abstracted logging facilities that allow dApp frontends to "listen" for specific actions occurring on the blockchain.
+    function mint() public onlyRole(MINTER_ROLE) {
+        // ... execution logic
+    }
+}
+```
 
-### Mappings
-Key-value stores (hashes) used to store relationships, such as `mapping(address => uint256) balances;` to track token ownership.
+---
 
-## Security and Best Practices
+## Standard Implementations (ERC)
 
-Smart contracts often handle significant financial value, making security paramount.
+### 1. ERC-20: Fungible Tokens
+Used for currency, reputation points, or voting power.
 
--   **Checks-Effects-Interactions Pattern**: Always perform checks (requirements) first, then update state (effects), and finally interact with external contracts to prevent **Reentrancy attacks**.
--   **Gas Optimization**: Avoid loops over dynamic arrays or excessive storage operations to keep transaction costs manageable.
--   **Overflow/Underflow**: While Solidity 0.8.x handles this automatically, understanding how integers wrap is crucial for older versions.
--   **Auditing**: Use tools like Slither or Mythril for static analysis, and always seek professional audits for production-grade code.
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+// Fixed the extensions from .md to .sol
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract ProjectToken is ERC20, Ownable {
+    // The constructor mints the initial supply to whoever deploys the contract
+    constructor(uint256 initialSupply) ERC20("ProjectToken", "PTK") Ownable(msg.sender) {
+        _mint(msg.sender, initialSupply);
+    }
+
+    // This allows YOU (the owner) to mint more tokens later if needed
+    function mint(address to, uint256 amount) public onlyOwner {
+        _mint(to, amount);
+    }
+}
+```
+
+### 2. ERC-721: Non-Fungible Tokens (NFTs)
+Used for unique assets such as land parcels, certificates, or IoT device identities.
+
+```solidity
+import "@openzeppelin/contracts/token/ERC721/ERC721.md";
+
+contract AssetRegistry is ERC721 {
+    uint256 private _nextTokenId;
+
+    constructor() ERC721("ProjectAsset", "PAS") {}
+
+    function registerAsset(address to) public {
+        uint256 tokenId = _nextTokenId++;
+        _safeMint(to, tokenId);
+    }
+}
+```
+
+---
+
+## Advanced Logic: The Escrow Pattern
+State machines are used to manage complex multi-step processes securely.
+
+```solidity
+contract SimpleEscrow {
+    enum State { AWAITING_PAYMENT, AWAITING_DELIVERY, COMPLETE }
+    
+    address public buyer;
+    address public seller;
+    State public currState;
+
+    modifier onlyBuyer() { require(msg.sender == buyer); _; }
+    modifier inState(State _state) { require(currState == _state); _; }
+
+    constructor(address _seller) payable {
+        buyer = msg.sender;
+        seller = _seller;
+        currState = State.AWAITING_PAYMENT;
+    }
+
+    function confirmDelivery() external onlyBuyer inState(State.AWAITING_DELIVERY) {
+        currState = State.COMPLETE;
+        payable(seller).transfer(address(this).balance);
+    }
+}
+```
+
+---
+
+## Technical Consultant's Corner
+
+### Security Checklist
+1.  **Reentrancy**: Use OpenZeppelin's `nonReentrant` modifier.
+2.  **Checks-Effects-Interactions**: Update state before making external calls.
+3.  **Visibility**: Mark functions as `external` to save gas.
+4.  **Pull over Push**: Let users withdraw funds rather than auto-sending to prevent DoS.
+
+For a deeper dive into network integration, see the [Ethereum Transaction Pipeline](eth-transaction.md).
