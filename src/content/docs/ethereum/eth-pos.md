@@ -353,23 +353,42 @@ Proposer selection is **stake-weighted through effective balance**, not simply o
 
 ### 1. Nothing-at-Stake Risk (Conceptual)
 
-Early PoS discussions highlighted a risk where validators might sign competing forks without physical mining cost.
+Early PoS discussions highlighted a risk where validators might sign competing forks without physical mining cost, as doing so on multiple chains is computationally trivial.
 
 ### 2. Ethereum Mitigation: Slashing
 
-Ethereum penalizes slashable behavior such as:
+Ethereum uses **slashing** to penalize severe, protocol-threatening behavior. Ordinary offline status (e.g., due to power outages or network failure) does not trigger slashing; it only incurs small inactivity penalties. 
 
-- Double proposal for the same slot.
-- Double vote (conflicting attestations).
-- Surround vote patterns.
+Slashing is reserved exclusively for three specific consensus-breaking offenses:
 
-### 3. Penalty Effects (High Level)
+#### A) Double Proposing
+- **Definition:** A block proposer signs and broadcasts two different blocks for the same slot.
+- **Hazard:** This is an attempt to split the network and force a chain fork.
+- **Common Cause:** Usually occurs due to malicious intent or operator configuration error (running the same validator key on two active backup nodes simultaneously).
 
-- Forced exit from active duties.
-- Initial slash penalties and correlated penalties are protocol-parameterized and can change across hard forks.
-- Full withdrawability timing depends on exit queue and withdrawability delay; it is not a single fixed wall-clock constant.
+#### B) LMD-GHOST Double Voting (Attestation Double Voting)
+- **Definition:** An attester signs and submits two different attestation votes (witnesses) for two different blocks in the same slot.
+- **Hazard:** Contributing votes to conflicting chain heads to destabilize the consensus fork-choice rule.
+- **Common Cause:** Customer software bugs or key backup misconfiguration.
 
-Exact penalty size depends on protocol rules and surrounding slash events.
+#### C) FFG Surrounding Voting (Casper FFG Surrounding)
+- **Definition:** A validator publishes a new attestation vote whose source and target checkpoints completely "surrounds" or "encompasses" a previous attestation vote they signed. For example, if an earlier vote is from checkpoint $A \to B$ and a newer vote is from $A_{prev} \to B_{post}$, this is a surround vote.
+- **Hazard:** This violates the finality rules of Casper FFG, attempting to rewrite finality history.
+
+---
+
+### 3. Validator and Proposer Penalties
+
+Penalties are split into **Slashing (Malicious)** and **Non-Slashing (Unintentional Offline)** duties.
+
+#### Ethereum Penalty Structure 
+
+| Category / Role                                      | Specific Event / Offense                                       | Penalty Consequences & Mechanics                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| :--------------------------------------------------- | :------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Slashing (Malicious)**<br>*(Proposer & Validator)* | **Double Proposing** / **Double Voting** / **Surround Voting** | **1. Initial Penalty:** Immediate deduction of at least 1 ETH from the validator's balance.<br>**2. Correlation Penalty:** Mid-term penalty calculated over a ~36-day period (18 days before and after the slash). If only a single isolated node is slashed, the penalty is minor. If deep, correlated group attacks occur (e.g., $> 1/3$ of validators slash concurrently), the penalty scales linearly up to the entire stake (32 ETH).<br>**3. Forced Exit & Offline Loss:** Slashed validators are immediately queued for forced exit (~36 days). During this period, they are inactive and continually accumulate offline penalties (approx. 0.18 ETH total). |
+| **Non-Slashing (Offline)**<br>*(Proposer)*           | **Missed Slot (Downtime Proposer)**                            | **Missed Slot Penalty:** No direct asset deduction is taken from the existing stake. However, the validator misses out on all potential yields for that block (block proposal rewards, execution priority fees, and MEV opportunities).                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| **Non-Slashing (Offline)**<br>*(Validator)*          | **Standard Offline / Downtime**                                | **Offline Penalty:** minor fee matching the validator's normal online reward rate (typically equivalent to earning rate, e.g., $\sim 0.003$ ETH per day) as long as $> 2/3$ of the active set is online.                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| **Non-Slashing (Offline)**<br>*(Validator)*          | **Catastrophic Offline (Inactivity Leak)**                     | **Inactivity Leak Penalty:** Triggered when $> 1/3$ of total validators go offline (preventing chain finalization). Offline nodes suffer exponential balance decay until their balance drops below 16 ETH and they are forced off-chain, restoring the online validator supermajority ($2/3$) required for finality.                                                                                                                                                                                                                                                                                                                                                |
 
 ## Part 7: Rewards and Finality
 
@@ -472,15 +491,31 @@ $$
 AttesterReward_{max} \approx \frac{7}{8} \times 3,695 + \frac{0.05}{600,000} = 3,233.125\ gwei
 $$
 
+
+
 #### D) Slashing-Inclusion Reward (Proposer)
 
-If a proposer includes valid slash evidence, a simplified study form is:
+If a block proposer includes valid slash evidence in a block, they are compensated by the protocol for helping maintain network security. 
+
+This is known as the **Slashing Inclusion Reward**:
 
 $$
-SlashingInclusionReward = \frac{SlashedValidatorsEffectiveBalance}{512}
+SlashingInclusionReward = \frac{\text{SlashedValidator's Effective Balance}}{512}
 $$
 
-This component is separate from ordinary proposer/attester reward shares.
+##### Core Mechanism Parsing:
+1. **The Proposer's Role:** Every 12 seconds (one slot), a validator is randomly assigned to produce a block. If they collect and include proof of another validator's double-signing/slashing offense (slash evidence), they package it within the block payload.
+2. **The Slasher / Slashed Validator's Stake:** The penalty is calculated based on the *Effective Balance* of the offending validator being penalized.
+3. **Calculation Example (Study Case):**
+   - Assumed Slashed Validator Effective Balance = $32\ \text{ETH}$.
+   - Reward output for the proposer:
+     $$
+     \text{Reward} = \frac{32\ \text{ETH}}{512} = 0.0625\ \text{ETH}
+     $$
+
+##### Key Strategic Characteristics:
+- **Absolute Independence:** This reward is issued *separately* and *in addition* to standard block proposing rewards, execution fees, or attestation shares.
+- **Economic Safety Incentive:** This is intentionally designed to establish a powerful, decentralized economic incentive pattern. Every operator is financially motivated to continuously monitor and report misbehaving nodes instantly, securing the network ledger on-chain.
 
 ### 3. Finality
 
