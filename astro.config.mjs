@@ -10,7 +10,10 @@ export default defineConfig({
         mermaid(), // 2. Add the mermaid integration here
         starlight({
             title: 'NoteStudy',
-            social: [{ icon: 'github', label: 'GitHub', href: '/social/' }],
+            social: [
+                { icon: 'github', label: 'GitHub', href: '/social/' },
+                { icon: 'github', label: 'repository', href: 'https://github.com/EnochCHIU-polyu/EnochCHIU-polyu.github.io' },
+            ],
             customCss: ['./src/styles/custom.css'],
             // Keep the theme locked to light mode and add a desktop sidebar toggle in the header.
             head: [
